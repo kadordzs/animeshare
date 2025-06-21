@@ -59,8 +59,8 @@
                 </div>
                 <p id="copy-success" class="text-green-400 mt-2 h-4"></p>
                 <div class="mt-2">
-                    <p class="text-xs text-gray-400">معرف المستخدم الخاص بك:</p>
-                    <p id="user-id-display" class="text-xs text-gray-500 break-all">غير متصل</p>
+                    <p class="text-xs text-gray-400">اسمك في المحادثة:</p>
+                    <p id="user-name-display" class="text-sm text-gray-200 break-all">غير متصل</p>
                 </div>
             </div>
 
@@ -106,7 +106,7 @@
             chatForm: document.getElementById('chat-form'),
             chatInput: document.getElementById('chat-input'),
             chatMessages: document.getElementById('chat-messages'),
-            userIdDisplay: document.getElementById('user-id-display'),
+            userNameDisplay: document.getElementById('user-name-display'),
             statusMessage: document.getElementById('status-message'),
         };
 
@@ -119,6 +119,7 @@
             sessionDocRef: null,
             messagesColRef: null,
             userId: null,
+            userName: null,
             localUpdate: false,
             lastKnownTime: 0,
             timeUpdateInterval: null,
@@ -144,7 +145,7 @@
             onAuthStateChanged(appState.auth, async (user) => {
                 if (user) {
                     appState.userId = user.uid;
-                    elements.userIdDisplay.textContent = appState.userId;
+                    setupUser();
                     elements.statusMessage.textContent = "متصل! جارِ تحميل الجلسة...";
                     elements.statusMessage.classList.replace('text-yellow-400', 'text-green-400');
                     setupSession();
@@ -160,24 +161,30 @@
                 }
             });
         }
+        
+        function setupUser() {
+            let savedName = localStorage.getItem('watchTogetherUserName');
+            if (!savedName) {
+                savedName = prompt("الرجاء إدخال اسمك للمحادثة:") || `مستخدم-${Math.floor(Math.random() * 1000)}`;
+                localStorage.setItem('watchTogetherUserName', savedName);
+            }
+            appState.userName = savedName;
+            elements.userNameDisplay.textContent = appState.userName;
+        }
 
         function setupSession() {
             const urlParams = new URLSearchParams(window.location.search);
             let currentSessionId = urlParams.get('session');
             
             if (currentSessionId) {
-                // User is joining an existing session
                 appState.sessionId = currentSessionId;
                 elements.sessionLinkInput.value = window.location.href;
             } else {
-                // User is creating a new session
                 currentSessionId = `${appState.userId}-${Date.now()}`;
                 appState.sessionId = currentSessionId;
                 const baseUrl = window.location.href.split('?')[0];
                 const fullLink = `${baseUrl}?session=${currentSessionId}`;
                 elements.sessionLinkInput.value = fullLink;
-                // NOTE: This avoids the history.replaceState error by not modifying the user's current URL bar.
-                // The generated shareable link is correct.
             }
             
             appState.sessionDocRef = doc(appState.db, "sessions", appState.sessionId);
@@ -187,24 +194,20 @@
         }
 
         function attachListeners() {
-            // Detach old listeners if they exist
             if (appState.sessionUnsubscribe) appState.sessionUnsubscribe();
             if (appState.messagesUnsubscribe) appState.messagesUnsubscribe();
 
-            // Listen to session state changes
             appState.sessionUnsubscribe = onSnapshot(appState.sessionDocRef, (snapshot) => {
-                console.log("Received session snapshot. Local update:", appState.localUpdate);
                 if (appState.localUpdate) {
                     appState.localUpdate = false;
                     return;
                 }
                 
                 const data = snapshot.exists() ? snapshot.data() : {};
-                console.log("Syncing remote state:", data);
-
-                if (data.videoUrl && elements.videoUrlInput.value !== data.videoUrl) {
-                    elements.videoUrlInput.value = data.videoUrl;
-                    loadVideo(data.videoUrl);
+                
+                const currentVideoUrl = elements.videoUrlInput.getAttribute('data-current-url');
+                if (data.videoUrl && data.videoUrl !== currentVideoUrl) {
+                    renderVideo(data.videoUrl, data.type);
                 }
 
                 if (appState.player && data.type === 'youtube' && appState.player.getPlayerState) {
@@ -223,7 +226,6 @@
                 elements.statusMessage.classList.replace('text-green-400', 'text-red-500');
             });
 
-            // Listen to chat messages
             const q = query(appState.messagesColRef);
             appState.messagesUnsubscribe = onSnapshot(q, (snapshot) => {
                 const allMessages = [];
@@ -233,24 +235,29 @@
                 elements.chatMessages.innerHTML = '';
                 allMessages.forEach(addMessageToDOM);
                 elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
-            }, (error) => {
-                console.error("Error listening to messages:", error);
             });
         }
         
         function addMessageToDOM(message) {
             const messageEl = document.createElement('div');
-            messageEl.classList.add('mb-3', 'p-3', 'rounded-lg', 'max-w-xs', 'break-words');
+            messageEl.classList.add('mb-3', 'p-3', 'rounded-lg', 'w-fit', 'max-w-xs', 'break-words');
             const isMe = message.senderId === appState.userId;
-            messageEl.classList.add(isMe ? 'bg-red-700' : 'bg-gray-600', isMe ? 'ml-auto' : 'mr-auto');
-            const senderIdShort = message.senderId.substring(0, 8);
-            messageEl.innerHTML = `<p class="text-sm">${message.text}</p><p class="text-xs text-gray-400 text-left mt-1">${senderIdShort}...</p>`;
+
+            if (isMe) {
+                messageEl.classList.add('bg-red-700', 'ml-auto');
+            } else {
+                messageEl.classList.add('bg-gray-600', 'mr-auto');
+            }
+            
+            messageEl.innerHTML = `
+                <p class="font-bold text-sm">${message.senderName || 'مستخدم'}</p>
+                <p class="text-white mt-1">${message.text}</p>
+            `;
             elements.chatMessages.appendChild(messageEl);
         }
 
         async function updateFirestoreState(newState) {
             if (!appState.sessionDocRef) return;
-            console.log("Sending local state to Firestore:", newState);
             appState.localUpdate = true;
             try { 
                 await setDoc(appState.sessionDocRef, newState, { merge: true }); 
@@ -261,7 +268,6 @@
             }
         }
         
-        // --- YouTube Player Logic ---
         window.onYouTubeIframeAPIReady = () => console.log("YouTube API Ready.");
 
         function createYouTubePlayer(videoId) {
@@ -311,12 +317,12 @@
             return (match && match[2].length === 11) ? match[2] : null;
         }
 
-        function loadVideo(url) {
-            if (!url) return;
-            const videoId = getYouTubeVideoId(url);
-            updateFirestoreState({ videoUrl: url, type: videoId ? 'youtube' : 'iframe' });
+        function renderVideo(url, type) {
+            elements.videoUrlInput.value = url;
+            elements.videoUrlInput.setAttribute('data-current-url', url);
             
-            if (videoId) {
+            if (type === 'youtube') {
+                const videoId = getYouTubeVideoId(url);
                 elements.infoMessage.classList.add('hidden');
                 createYouTubePlayer(videoId);
             } else {
@@ -329,26 +335,37 @@
                 elements.infoMessage.classList.remove('hidden');
             }
         }
-        
-        // --- Event Listeners Setup ---
-        elements.loadVideoButton.addEventListener('click', () => loadVideo(elements.videoUrlInput.value.trim()));
+
+        elements.loadVideoButton.addEventListener('click', () => {
+            const url = elements.videoUrlInput.value.trim();
+            if (!url) return;
+            const videoId = getYouTubeVideoId(url);
+            updateFirestoreState({ videoUrl: url, type: videoId ? 'youtube' : 'iframe', currentTime: 0, isPlaying: true });
+        });
+
         elements.videoUrlInput.addEventListener('keypress', (e) => e.key === 'Enter' && elements.loadVideoButton.click());
+        
         elements.copyButton.addEventListener('click', () => {
             elements.sessionLinkInput.select();
             document.execCommand('copy');
             elements.copySuccessMessage.textContent = 'تم نسخ الرابط!';
             setTimeout(() => { elements.copySuccessMessage.textContent = '' }, 2000);
         });
+        
         elements.chatForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const messageText = elements.chatInput.value.trim();
             if (messageText && appState.messagesColRef) {
                 elements.chatInput.value = '';
-                await addDoc(appState.messagesColRef, { text: messageText, senderId: appState.userId, createdAt: serverTimestamp() });
+                await addDoc(appState.messagesColRef, { 
+                    text: messageText, 
+                    senderId: appState.userId,
+                    senderName: appState.userName,
+                    createdAt: serverTimestamp() 
+                });
             }
         });
         
-        // --- Load YouTube API and Start App ---
         const tag = document.createElement('script');
         tag.src = "https://www.youtube.com/iframe_api";
         document.head.appendChild(tag);
