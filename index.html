@@ -9,21 +9,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Cairo', sans-serif;
-        }
-        #player-container {
-            position: relative;
-            width: 100%;
-            padding-top: 56.25%; /* 16:9 Aspect Ratio */
-        }
-        #player, #iframe-player {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
+        body { font-family: 'Cairo', sans-serif; }
+        #player-container { position: relative; width: 100%; padding-top: 56.25%; }
+        #player, #iframe-player { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
         #chat-messages::-webkit-scrollbar { width: 8px; }
         #chat-messages::-webkit-scrollbar-track { background: #2d3748; }
         #chat-messages::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 4px; }
@@ -32,14 +20,12 @@
 </head>
 <body class="bg-gray-900 text-white">
 
-    <!-- Configuration Error Overlay is now removed as we assume config is correct -->
-
     <div class="flex flex-col lg:flex-row h-screen">
         <!-- Main Content (Video) -->
         <main class="w-full lg:w-2/3 p-4 flex flex-col">
             <header class="text-center my-4">
                 <h1 class="text-4xl font-bold text-red-500">شاهدوا معًا</h1>
-                <p class="text-gray-400 mt-2">شارك رابط الفيديو وشاهده مع أصدقائك فورًا</p>
+                <p id="status-message" class="text-yellow-400 mt-2">جارِ الاتصال...</p>
             </header>
 
             <div class="flex flex-col sm:flex-row gap-2 mb-4">
@@ -74,7 +60,7 @@
                 <p id="copy-success" class="text-green-400 mt-2 h-4"></p>
                 <div class="mt-2">
                     <p class="text-xs text-gray-400">معرف المستخدم الخاص بك:</p>
-                    <p id="user-id-display" class="text-xs text-gray-500 break-all">جارِ الاتصال...</p>
+                    <p id="user-id-display" class="text-xs text-gray-500 break-all">غير متصل</p>
                 </div>
             </div>
 
@@ -95,7 +81,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, serverTimestamp, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- إعدادات Firebase الخاصة بك ---
+        // --- Firebase Config ---
         const firebaseConfig = {
             apiKey: "AIzaSyAIoruD5BJKkDVpaQqBxgjKi4Gga5FoyqI",
             authDomain: "shereanime-a5ba4.firebaseapp.com",
@@ -105,150 +91,188 @@
             appId: "1:1099067763175:web:fd9c77c365b5605d2a7542",
             measurementId: "G-MMQ1LM3XH3"
         };
-        // --- نهاية قسم إعدادات Firebase ---
         
-        // --- ELEMENTS ---
-        const videoUrlInput = document.getElementById('video-url-input');
-        const loadVideoButton = document.getElementById('load-video-button');
-        const sessionLinkInput = document.getElementById('session-link');
-        const copyButton = document.getElementById('copy-button');
-        const copySuccessMessage = document.getElementById('copy-success');
-        const playerDiv = document.getElementById('player');
-        const iframePlayer = document.getElementById('iframe-player');
-        const placeholderDiv = document.getElementById('placeholder');
-        const infoMessage = document.getElementById('info-message');
-        const chatForm = document.getElementById('chat-form');
-        const chatInput = document.getElementById('chat-input');
-        const chatMessages = document.getElementById('chat-messages');
-        const userIdDisplay = document.getElementById('user-id-display');
+        // --- DOM Elements ---
+        const elements = {
+            videoUrlInput: document.getElementById('video-url-input'),
+            loadVideoButton: document.getElementById('load-video-button'),
+            sessionLinkInput: document.getElementById('session-link'),
+            copyButton: document.getElementById('copy-button'),
+            copySuccessMessage: document.getElementById('copy-success'),
+            playerDiv: document.getElementById('player'),
+            iframePlayer: document.getElementById('iframe-player'),
+            placeholderDiv: document.getElementById('placeholder'),
+            infoMessage: document.getElementById('info-message'),
+            chatForm: document.getElementById('chat-form'),
+            chatInput: document.getElementById('chat-input'),
+            chatMessages: document.getElementById('chat-messages'),
+            userIdDisplay: document.getElementById('user-id-display'),
+            statusMessage: document.getElementById('status-message'),
+        };
 
-        // --- INITIALIZE FIREBASE ---
-        let db, auth;
-        try {
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-        } catch (e) {
-            console.error("Firebase initialization failed:", e);
-            document.body.innerHTML = `<div class="fixed inset-0 bg-gray-900 text-white flex items-center justify-center text-center p-4"><h2>فشل في تهيئة Firebase. تأكد من صحة الإعدادات في الكود.</h2></div>`;
+        // --- App State ---
+        let appState = {
+            db: null,
+            auth: null,
+            player: null,
+            sessionId: null,
+            sessionDocRef: null,
+            messagesColRef: null,
+            userId: null,
+            localUpdate: false,
+            lastKnownTime: 0,
+            timeUpdateInterval: null,
+            sessionUnsubscribe: null,
+            messagesUnsubscribe: null,
+        };
+
+        // --- Main App Logic ---
+        function main() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                appState.db = getFirestore(app);
+                appState.auth = getAuth(app);
+                handleAuthentication();
+            } catch (e) {
+                console.error("Firebase initialization failed:", e);
+                elements.statusMessage.textContent = "فشل تهيئة Firebase. تأكد من صحة الإعدادات.";
+                elements.statusMessage.classList.replace('text-yellow-400', 'text-red-500');
+            }
         }
 
-        // --- STATE VARIABLES ---
-        let player;
-        let sessionId;
-        let sessionDocRef;
-        let messagesColRef;
-        let userId;
-        let localUpdate = false;
-        let lastKnownTime = 0;
-        let timeUpdateInterval;
+        function handleAuthentication() {
+            onAuthStateChanged(appState.auth, async (user) => {
+                if (user) {
+                    appState.userId = user.uid;
+                    elements.userIdDisplay.textContent = appState.userId;
+                    elements.statusMessage.textContent = "متصل! جارِ تحميل الجلسة...";
+                    elements.statusMessage.classList.replace('text-yellow-400', 'text-green-400');
+                    setupSession();
+                } else {
+                    elements.statusMessage.textContent = "جارِ تسجيل الدخول...";
+                    try {
+                        await signInAnonymously(appState.auth);
+                    } catch (error) {
+                        console.error("Anonymous sign-in failed:", error);
+                        elements.statusMessage.textContent = "فشل تسجيل الدخول. تأكد من تفعيل 'Anonymous sign-in' في Firebase.";
+                        elements.statusMessage.classList.replace('text-yellow-400', 'text-red-500');
+                    }
+                }
+            });
+        }
 
-        // --- SESSION MANAGEMENT ---
         function setupSession() {
             const urlParams = new URLSearchParams(window.location.search);
             let currentSessionId = urlParams.get('session');
-            if (!currentSessionId) {
-                currentSessionId = `${userId}-${Date.now()}`;
+            
+            if (currentSessionId) {
+                // User is joining an existing session
+                appState.sessionId = currentSessionId;
+                elements.sessionLinkInput.value = window.location.href;
+            } else {
+                // User is creating a new session
+                currentSessionId = `${appState.userId}-${Date.now()}`;
+                appState.sessionId = currentSessionId;
+                const baseUrl = window.location.href.split('?')[0];
+                const fullLink = `${baseUrl}?session=${currentSessionId}`;
+                elements.sessionLinkInput.value = fullLink;
+                // NOTE: This avoids the history.replaceState error by not modifying the user's current URL bar.
+                // The generated shareable link is correct.
             }
-            sessionId = currentSessionId;
-            const baseUrl = window.location.href.split('?')[0];
-            const fullLink = `${baseUrl}?session=${sessionId}`;
-            sessionLinkInput.value = fullLink;
-            sessionDocRef = doc(db, "sessions", sessionId);
-            messagesColRef = collection(sessionDocRef, "messages");
-            listenToSessionChanges();
-            listenToMessages();
+            
+            appState.sessionDocRef = doc(appState.db, "sessions", appState.sessionId);
+            appState.messagesColRef = collection(appState.sessionDocRef, "messages");
+            
+            attachListeners();
         }
 
-        // --- FIREBASE AUTHENTICATION ---
-        if (auth) {
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    userId = user.uid;
-                    userIdDisplay.textContent = userId;
-                    setupSession();
-                } else {
-                    try {
-                        await signInAnonymously(auth);
-                    } catch (error) {
-                        console.error("Anonymous sign-in failed:", error);
-                        document.body.innerHTML = `<div class="fixed inset-0 bg-gray-900 text-white flex items-center justify-center text-center p-4"><h2>فشل تسجيل الدخول. تأكد من تفعيل 'Anonymous sign-in' في إعدادات Firebase.</h2></div>`;
-                    }
+        function attachListeners() {
+            // Detach old listeners if they exist
+            if (appState.sessionUnsubscribe) appState.sessionUnsubscribe();
+            if (appState.messagesUnsubscribe) appState.messagesUnsubscribe();
+
+            // Listen to session state changes
+            appState.sessionUnsubscribe = onSnapshot(appState.sessionDocRef, (snapshot) => {
+                console.log("Received session snapshot. Local update:", appState.localUpdate);
+                if (appState.localUpdate) {
+                    appState.localUpdate = false;
+                    return;
                 }
-            });
-        }
-        
-        function listenToSessionChanges() {
-            onSnapshot(sessionDocRef, (snapshot) => {
+                
                 const data = snapshot.exists() ? snapshot.data() : {};
-                if (localUpdate) { localUpdate = false; return; }
-                if (data.videoUrl && videoUrlInput.value !== data.videoUrl) {
-                    videoUrlInput.value = data.videoUrl;
+                console.log("Syncing remote state:", data);
+
+                if (data.videoUrl && elements.videoUrlInput.value !== data.videoUrl) {
+                    elements.videoUrlInput.value = data.videoUrl;
                     loadVideo(data.videoUrl);
                 }
-                if (player && data.type === 'youtube' && player.getPlayerState) {
-                    const playerState = player.getPlayerState();
-                    if (data.isPlaying && playerState !== YT.PlayerState.PLAYING) { player.playVideo(); } 
-                    else if (!data.isPlaying && playerState !== YT.PlayerState.PAUSED) { player.pauseVideo(); }
-                    if(player.getCurrentTime){
-                       const timeDifference = Math.abs(data.currentTime - (player.getCurrentTime() || 0));
-                        if (timeDifference > 2.5) { player.seekTo(data.currentTime, true); }
+
+                if (appState.player && data.type === 'youtube' && appState.player.getPlayerState) {
+                    const playerState = appState.player.getPlayerState();
+                    if (data.isPlaying && playerState !== YT.PlayerState.PLAYING) { appState.player.playVideo(); } 
+                    else if (!data.isPlaying && playerState !== YT.PlayerState.PAUSED) { appState.player.pauseVideo(); }
+                    
+                    if (appState.player.getCurrentTime) {
+                       const timeDifference = Math.abs((data.currentTime || 0) - (appState.player.getCurrentTime() || 0));
+                        if (timeDifference > 2.5) { appState.player.seekTo(data.currentTime, true); }
                     }
                 }
+            }, (error) => {
+                console.error("Error listening to session:", error);
+                elements.statusMessage.textContent = "خطأ في الاتصال بالجلسة.";
+                elements.statusMessage.classList.replace('text-green-400', 'text-red-500');
             });
-        }
 
-        function listenToMessages() {
-            const q = query(messagesColRef);
-            onSnapshot(q, (snapshot) => {
+            // Listen to chat messages
+            const q = query(appState.messagesColRef);
+            appState.messagesUnsubscribe = onSnapshot(q, (snapshot) => {
                 const allMessages = [];
                 snapshot.forEach(doc => allMessages.push({ ...doc.data(), id: doc.id }));
                 allMessages.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
-                chatMessages.innerHTML = '';
+                
+                elements.chatMessages.innerHTML = '';
                 allMessages.forEach(addMessageToDOM);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+                elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+            }, (error) => {
+                console.error("Error listening to messages:", error);
             });
         }
         
         function addMessageToDOM(message) {
             const messageEl = document.createElement('div');
             messageEl.classList.add('mb-3', 'p-3', 'rounded-lg', 'max-w-xs', 'break-words');
-            const isMe = message.senderId === userId;
+            const isMe = message.senderId === appState.userId;
             messageEl.classList.add(isMe ? 'bg-red-700' : 'bg-gray-600', isMe ? 'ml-auto' : 'mr-auto');
             const senderIdShort = message.senderId.substring(0, 8);
             messageEl.innerHTML = `<p class="text-sm">${message.text}</p><p class="text-xs text-gray-400 text-left mt-1">${senderIdShort}...</p>`;
-            chatMessages.appendChild(messageEl);
+            elements.chatMessages.appendChild(messageEl);
         }
-
-        chatForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const messageText = chatInput.value.trim();
-            if (messageText && messagesColRef) {
-                chatInput.value = '';
-                await addDoc(messagesColRef, { text: messageText, senderId: userId, createdAt: serverTimestamp() });
-            }
-        });
 
         async function updateFirestoreState(newState) {
-            if (!sessionDocRef) return;
-            localUpdate = true;
-            try { await setDoc(sessionDocRef, newState, { merge: true }); } 
-            catch (error) { console.error("Error updating Firestore:", error); }
+            if (!appState.sessionDocRef) return;
+            console.log("Sending local state to Firestore:", newState);
+            appState.localUpdate = true;
+            try { 
+                await setDoc(appState.sessionDocRef, newState, { merge: true }); 
+            } catch (error) { 
+                console.error("Error updating Firestore:", error); 
+                elements.statusMessage.textContent = "فشل تحديث الحالة. تحقق من اتصالك.";
+                elements.statusMessage.classList.replace('text-green-400', 'text-red-500');
+            }
         }
         
-        const tag = document.createElement('script');
-        tag.src = "https://www.youtube.com/iframe_api";
-        document.head.appendChild(tag);
+        // --- YouTube Player Logic ---
         window.onYouTubeIframeAPIReady = () => console.log("YouTube API Ready.");
 
         function createYouTubePlayer(videoId) {
-            placeholderDiv.classList.add('hidden');
-            iframePlayer.classList.add('hidden');
-            playerDiv.classList.remove('hidden');
-            if (player) {
-                player.loadVideoById(videoId);
+            elements.placeholderDiv.classList.add('hidden');
+            elements.iframePlayer.classList.add('hidden');
+            elements.playerDiv.classList.remove('hidden');
+            
+            if (appState.player) {
+                appState.player.loadVideoById(videoId);
             } else {
-                player = new YT.Player('player', {
+                appState.player = new YT.Player('player', {
                     height: '100%', width: '100%', videoId: videoId,
                     playerVars: { 'playsinline': 1, 'autoplay': 1, 'controls': 1, 'rel': 0 },
                     events: { 'onReady': (e) => e.target.playVideo(), 'onStateChange': onPlayerStateChange }
@@ -262,24 +286,24 @@
             if (isPlaying) { startSendingTimeUpdates(); } 
             else {
                 stopSendingTimeUpdates();
-                if (player && player.getCurrentTime) { updateFirestoreState({ currentTime: player.getCurrentTime() }); }
+                if (appState.player && appState.player.getCurrentTime) { updateFirestoreState({ currentTime: appState.player.getCurrentTime() }); }
             }
         }
 
         function startSendingTimeUpdates() {
-            if (timeUpdateInterval) clearInterval(timeUpdateInterval);
-            timeUpdateInterval = setInterval(() => {
-                if (player && player.getCurrentTime) {
-                    const currentTime = player.getCurrentTime();
-                    if (Math.abs(currentTime - lastKnownTime) > 1) {
-                       lastKnownTime = currentTime;
+            if (appState.timeUpdateInterval) clearInterval(appState.timeUpdateInterval);
+            appState.timeUpdateInterval = setInterval(() => {
+                if (appState.player && appState.player.getCurrentTime) {
+                    const currentTime = appState.player.getCurrentTime();
+                    if (Math.abs(currentTime - appState.lastKnownTime) > 1) {
+                       appState.lastKnownTime = currentTime;
                        updateFirestoreState({ currentTime: currentTime });
                     }
                 }
             }, 1000);
         }
 
-        function stopSendingTimeUpdates() { if(timeUpdateInterval) clearInterval(timeUpdateInterval); }
+        function stopSendingTimeUpdates() { if(appState.timeUpdateInterval) clearInterval(appState.timeUpdateInterval); }
         
         function getYouTubeVideoId(url) {
             const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -290,30 +314,45 @@
         function loadVideo(url) {
             if (!url) return;
             const videoId = getYouTubeVideoId(url);
+            updateFirestoreState({ videoUrl: url, type: videoId ? 'youtube' : 'iframe' });
+            
             if (videoId) {
-                infoMessage.classList.add('hidden');
+                elements.infoMessage.classList.add('hidden');
                 createYouTubePlayer(videoId);
-                updateFirestoreState({ videoUrl: url, type: 'youtube' });
             } else {
-                if (player) { player.destroy(); player = null; }
+                if (appState.player) { appState.player.destroy(); appState.player = null; }
                 stopSendingTimeUpdates();
-                placeholderDiv.classList.add('hidden');
-                playerDiv.classList.add('hidden');
-                iframePlayer.src = url;
-                iframePlayer.classList.remove('hidden');
-                infoMessage.classList.remove('hidden');
-                updateFirestoreState({ videoUrl: url, type: 'iframe', isPlaying: false, currentTime: 0 });
+                elements.placeholderDiv.classList.add('hidden');
+                elements.playerDiv.classList.add('hidden');
+                elements.iframePlayer.src = url;
+                elements.iframePlayer.classList.remove('hidden');
+                elements.infoMessage.classList.remove('hidden');
             }
         }
         
-        loadVideoButton.addEventListener('click', () => loadVideo(videoUrlInput.value.trim()));
-        videoUrlInput.addEventListener('keypress', (e) => e.key === 'Enter' && loadVideoButton.click());
-        copyButton.addEventListener('click', () => {
-            sessionLinkInput.select();
+        // --- Event Listeners Setup ---
+        elements.loadVideoButton.addEventListener('click', () => loadVideo(elements.videoUrlInput.value.trim()));
+        elements.videoUrlInput.addEventListener('keypress', (e) => e.key === 'Enter' && elements.loadVideoButton.click());
+        elements.copyButton.addEventListener('click', () => {
+            elements.sessionLinkInput.select();
             document.execCommand('copy');
-            copySuccessMessage.textContent = 'تم نسخ الرابط!';
-            setTimeout(() => { copySuccessMessage.textContent = '' }, 2000);
+            elements.copySuccessMessage.textContent = 'تم نسخ الرابط!';
+            setTimeout(() => { elements.copySuccessMessage.textContent = '' }, 2000);
         });
+        elements.chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const messageText = elements.chatInput.value.trim();
+            if (messageText && appState.messagesColRef) {
+                elements.chatInput.value = '';
+                await addDoc(appState.messagesColRef, { text: messageText, senderId: appState.userId, createdAt: serverTimestamp() });
+            }
+        });
+        
+        // --- Load YouTube API and Start App ---
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        document.head.appendChild(tag);
+        main();
     </script>
 </body>
 </html>
