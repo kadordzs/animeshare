@@ -208,7 +208,7 @@
         let appState = {
             db: null, auth: null, player: null, sessionId: null, sessionDocRef: null,
             usersColRef: null, messagesColRef: null, userId: null, userName: null, userAvatar: null,
-            isSyncing: false, localStateChange: false,
+            isSyncing: false,
             sessionUnsubscribe: null, messagesUnsubscribe: null, usersUnsubscribe: null,
         };
 
@@ -288,12 +288,17 @@
             appState.sessionUnsubscribe = onSnapshot(appState.sessionDocRef, (snapshot) => {
                 elements.statusText.textContent = "Session Ready!";
                 elements.statusMessage.classList.replace('text-yellow-400', 'text-green-400');
-                if (appState.localStateChange) { appState.localStateChange = false; return; }
+                
                 const data = snapshot.exists() ? snapshot.data() : {};
-                if (data.videoUrl && data.videoUrl !== elements.videoUrlInput.getAttribute('data-current-url')) {
-                    renderVideo(data.videoUrl, data.type);
+                const source = snapshot.metadata.hasPendingWrites ? "Local" : "Server";
+
+                // Only react to server changes to avoid local echo
+                if (source === "Server") {
+                    if (data.videoUrl && data.videoUrl !== elements.videoUrlInput.getAttribute('data-current-url')) {
+                        renderVideo(data.videoUrl, data.type);
+                    }
+                    syncPlayerState(data);
                 }
-                syncPlayerState(data);
             });
             if (appState.usersUnsubscribe) appState.usersUnsubscribe();
             appState.usersUnsubscribe = onSnapshot(appState.usersColRef, (snapshot) => {
@@ -345,7 +350,6 @@
 
         async function updateFirestoreState(newState) {
             if (!appState.sessionDocRef) return;
-            appState.localStateChange = true;
             try { await setDoc(appState.sessionDocRef, newState, { merge: true }); } 
             catch (error) { console.error("Error updating Firestore:", error); }
         }
@@ -393,12 +397,6 @@
             }
         }
         
-        /**
-         * Resizes an image file to a maximum size while maintaining aspect ratio.
-         * @param {File} file The image file to resize.
-         * @param {number} maxSize The maximum width or height of the resized image.
-         * @returns {Promise<string>} A promise that resolves with the resized image as a Base64 data URL.
-         */
         function resizeImage(file, maxSize = 256) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -432,7 +430,6 @@
                 reader.readAsDataURL(file);
             });
         }
-
 
         async function handleAvatarUpload(file) {
             if (!file) return;
