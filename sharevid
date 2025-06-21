@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>شاهدوا معًا</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+        }
+        #player-container {
+            position: relative;
+            width: 100%;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+        }
+        #player, #iframe-player {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        /* Custom scrollbar for chat */
+        #chat-messages::-webkit-scrollbar {
+            width: 8px;
+        }
+        #chat-messages::-webkit-scrollbar-track {
+            background: #2d3748; /* bg-gray-700 */
+        }
+        #chat-messages::-webkit-scrollbar-thumb {
+            background: #4a5568; /* bg-gray-600 */
+            border-radius: 4px;
+        }
+        #chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #718096; /* bg-gray-500 */
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="flex flex-col lg:flex-row h-screen">
+        <!-- Main Content (Video) -->
+        <main class="w-full lg:w-2/3 p-4 flex flex-col">
+            <header class="text-center my-4">
+                <h1 class="text-4xl font-bold text-red-500">شاهدوا معًا</h1>
+                <p class="text-gray-400 mt-2">شارك رابط الفيديو وشاهده مع أصدقائك فورًا</p>
+            </header>
+
+            <!-- URL Input -->
+            <div class="flex flex-col sm:flex-row gap-2 mb-4">
+                <input id="video-url-input" type="text" placeholder="الصق رابط فيديو يوتيوب أو أي موقع آخر هنا..." class="flex-grow bg-gray-800 text-white p-3 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all">
+                <button id="load-video-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-md transition-colors duration-300">
+                    تحميل الفيديو
+                </button>
+            </div>
+
+            <!-- Info Message -->
+            <div id="info-message" class="bg-blue-900/50 border border-blue-700 text-blue-300 p-3 rounded-lg mb-4 text-center hidden">
+                <p><strong>ملاحظة:</strong> المزامنة الكاملة تعمل فقط مع روابط يوتيوب. للمواقع الأخرى، سيتم تحميل الصفحة فقط والتحكم يدوي.</p>
+            </div>
+            
+            <!-- Video Player -->
+            <div id="player-container" class="bg-black rounded-lg shadow-2xl overflow-hidden flex-grow">
+                <div id="player"></div>
+                <iframe id="iframe-player" class="hidden" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                <div id="placeholder" class="w-full h-full flex items-center justify-center bg-gray-800">
+                    <div class="text-center text-gray-500">
+                        <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.55a2 2 0 010 3.8l-4.55 2.2M4 6h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" /></svg>
+                        <p class="mt-2">الفيديو سيظهر هنا</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Sidebar (Chat & Info) -->
+        <aside class="w-full lg:w-1/3 bg-gray-800 flex flex-col p-4 border-r-2 border-gray-700 h-screen lg:h-auto">
+             <!-- Session Sharing -->
+            <div class="bg-gray-900 p-4 rounded-lg mb-4 text-center">
+                <h2 class="text-lg font-semibold mb-2">شارك هذه الجلسة</h2>
+                <div class="flex items-center justify-center bg-gray-700 rounded-md p-2">
+                    <input id="session-link" type="text" class="bg-transparent text-white w-full text-center focus:outline-none" readonly>
+                    <button id="copy-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md mr-2 transition-colors duration-300">نسخ</button>
+                </div>
+                <p id="copy-success" class="text-green-400 mt-2 h-4"></p>
+                <div class="mt-2">
+                    <p class="text-xs text-gray-400">معرف المستخدم الخاص بك:</p>
+                    <p id="user-id-display" class="text-xs text-gray-500 break-all"></p>
+                </div>
+            </div>
+
+            <!-- Chat -->
+            <div class="flex-grow flex flex-col bg-gray-900 rounded-lg">
+                <h2 class="text-xl font-bold p-4 text-center border-b border-gray-700">المحادثة</h2>
+                <div id="chat-messages" class="flex-grow p-4 overflow-y-auto">
+                    <!-- Messages will be injected here -->
+                </div>
+                <form id="chat-form" class="p-4 border-t border-gray-700 flex gap-2">
+                    <input id="chat-input" type="text" placeholder="اكتب رسالتك..." class="flex-grow bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <button type="submit" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md transition-colors">إرسال</button>
+                </form>
+            </div>
+        </aside>
+    </div>
+
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, serverTimestamp, query, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- ELEMENTS ---
+        const videoUrlInput = document.getElementById('video-url-input');
+        const loadVideoButton = document.getElementById('load-video-button');
+        const sessionLinkInput = document.getElementById('session-link');
+        const copyButton = document.getElementById('copy-button');
+        const copySuccessMessage = document.getElementById('copy-success');
+        const playerDiv = document.getElementById('player');
+        const iframePlayer = document.getElementById('iframe-player');
+        const placeholderDiv = document.getElementById('placeholder');
+        const infoMessage = document.getElementById('info-message');
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const chatMessages = document.getElementById('chat-messages');
+        const userIdDisplay = document.getElementById('user-id-display');
+
+        // --- FIREBASE SETUP ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'watch-together-default';
+        const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+        const firebaseConfig = JSON.parse(firebaseConfigStr);
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // --- STATE VARIABLES ---
+        let player;
+        let sessionId;
+        let sessionDocRef;
+        let messagesColRef;
+        let userId;
+        let localUpdate = false;
+        let lastKnownTime = 0;
+        let timeUpdateInterval;
+
+        // --- SESSION MANAGEMENT ---
+        function setupSession() {
+            const urlParams = new URLSearchParams(window.location.search);
+            let currentSessionId = urlParams.get('session');
+
+            if (!currentSessionId) {
+                currentSessionId = `${userId}-${Date.now()}`;
+            }
+            
+            sessionId = currentSessionId;
+
+            const baseUrl = window.location.href.split('?')[0];
+            const fullLink = `${baseUrl}?session=${sessionId}`;
+            sessionLinkInput.value = fullLink;
+
+            sessionDocRef = doc(db, "artifacts", appId, "public", "data", "sessions", sessionId);
+            messagesColRef = collection(sessionDocRef, "messages");
+
+            listenToSessionChanges();
+            listenToMessages();
+        }
+
+        // --- FIREBASE AUTHENTICATION ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                userIdDisplay.textContent = userId;
+                console.log("User is signed in with UID:", userId);
+                setupSession();
+            } else {
+                 console.log("No user found, signing in anonymously.");
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Error during sign-in:", error);
+                    userId = 'anonymous-' + Math.random().toString(36).substring(2, 9);
+                    userIdDisplay.textContent = userId;
+                    setupSession();
+                }
+            }
+        });
+
+        // --- FIREBASE LISTENERS ---
+        function listenToSessionChanges() {
+            onSnapshot(sessionDocRef, (snapshot) => {
+                const data = snapshot.exists() ? snapshot.data() : {};
+                if (localUpdate) {
+                    localUpdate = false;
+                    return;
+                }
+
+                if (data.videoUrl && videoUrlInput.value !== data.videoUrl) {
+                    videoUrlInput.value = data.videoUrl;
+                    loadVideo(data.videoUrl);
+                }
+                
+                if (player && data.type === 'youtube' && player.getPlayerState) {
+                    const playerState = player.getPlayerState();
+                    if (data.isPlaying && playerState !== YT.PlayerState.PLAYING) {
+                        player.playVideo();
+                    } else if (!data.isPlaying && playerState !== YT.PlayerState.PAUSED) {
+                        player.pauseVideo();
+                    }
+
+                    if(player.getCurrentTime){
+                       const timeDifference = Math.abs(data.currentTime - (player.getCurrentTime() || 0));
+                        if (timeDifference > 2.5) {
+                            player.seekTo(data.currentTime, true);
+                        }
+                    }
+                }
+            });
+        }
+
+        function listenToMessages() {
+            const q = query(messagesColRef);
+            onSnapshot(q, (snapshot) => {
+                const allMessages = [];
+                snapshot.forEach(doc => allMessages.push({ ...doc.data(), id: doc.id }));
+                
+                // Sort messages by timestamp client-side
+                allMessages.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+
+                chatMessages.innerHTML = ''; // Clear previous messages
+                allMessages.forEach(addMessageToDOM);
+                
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            });
+        }
+        
+        // --- CHAT FUNCTIONS ---
+        function addMessageToDOM(message) {
+            const messageEl = document.createElement('div');
+            messageEl.classList.add('mb-3', 'p-3', 'rounded-lg', 'max-w-xs', 'break-words');
+            
+            const isMe = message.senderId === userId;
+            
+            if (isMe) {
+                messageEl.classList.add('bg-red-700', 'ml-auto');
+            } else {
+                messageEl.classList.add('bg-gray-600', 'mr-auto');
+            }
+            
+            const senderIdShort = message.senderId.substring(0, 8);
+            messageEl.innerHTML = `
+                <p class="text-sm">${message.text}</p>
+                <p class="text-xs text-gray-400 text-left mt-1">${senderIdShort}...</p>
+            `;
+            chatMessages.appendChild(messageEl);
+        }
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const messageText = chatInput.value.trim();
+            if (messageText && messagesColRef) {
+                chatInput.value = '';
+                await addDoc(messagesColRef, {
+                    text: messageText,
+                    senderId: userId,
+                    createdAt: serverTimestamp()
+                });
+            }
+        });
+
+        // --- FIREBASE UPDATE FUNCTION ---
+        async function updateFirestoreState(newState) {
+            if (!sessionDocRef) return;
+            localUpdate = true;
+            try {
+                await setDoc(sessionDocRef, newState, { merge: true });
+            } catch (error) {
+                console.error("Error updating Firestore:", error);
+            }
+        }
+        
+        // --- YOUTUBE API SETUP & PLAYER LOGIC (Unchanged) ---
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        window.onYouTubeIframeAPIReady = () => console.log("YouTube API Ready.");
+
+        function createYouTubePlayer(videoId) {
+            placeholderDiv.classList.add('hidden');
+            iframePlayer.classList.add('hidden');
+            playerDiv.classList.remove('hidden');
+
+            if (player) {
+                player.loadVideoById(videoId);
+            } else {
+                player = new YT.Player('player', {
+                    height: '100%', width: '100%', videoId: videoId,
+                    playerVars: { 'playsinline': 1, 'autoplay': 1, 'controls': 1, 'rel': 0 },
+                    events: { 'onReady': onPlayerReady, 'onStateChange': onPlayerStateChange }
+                });
+            }
+        }
+        
+        function onPlayerReady(event) { event.target.playVideo(); }
+
+        function onPlayerStateChange(event) {
+            const isPlaying = (event.data === YT.PlayerState.PLAYING);
+            updateFirestoreState({ isPlaying: isPlaying });
+            if (isPlaying) {
+                startSendingTimeUpdates();
+            } else {
+                stopSendingTimeUpdates();
+                if (player && player.getCurrentTime) {
+                    updateFirestoreState({ currentTime: player.getCurrentTime() });
+                }
+            }
+        }
+
+        function startSendingTimeUpdates() {
+            if (timeUpdateInterval) clearInterval(timeUpdateInterval);
+            timeUpdateInterval = setInterval(() => {
+                if (player && player.getCurrentTime) {
+                    const currentTime = player.getCurrentTime();
+                    if (Math.abs(currentTime - lastKnownTime) > 1) {
+                       lastKnownTime = currentTime;
+                       updateFirestoreState({ currentTime: currentTime });
+                    }
+                }
+            }, 1000);
+        }
+
+        function stopSendingTimeUpdates() {
+             if(timeUpdateInterval) clearInterval(timeUpdateInterval);
+        }
+        
+        function getYouTubeVideoId(url) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
+        function loadVideo(url) {
+            if (!url) return;
+            const videoId = getYouTubeVideoId(url);
+            if (videoId) {
+                infoMessage.classList.add('hidden');
+                createYouTubePlayer(videoId);
+                updateFirestoreState({ videoUrl: url, type: 'youtube' });
+            } else {
+                if (player) { player.destroy(); player = null; }
+                stopSendingTimeUpdates();
+                placeholderDiv.classList.add('hidden');
+                playerDiv.classList.add('hidden');
+                iframePlayer.src = url;
+                iframePlayer.classList.remove('hidden');
+                infoMessage.classList.remove('hidden');
+                updateFirestoreState({ videoUrl: url, type: 'iframe', isPlaying: false, currentTime: 0 });
+            }
+        }
+        
+        // --- EVENT LISTENERS ---
+        loadVideoButton.addEventListener('click', () => loadVideo(videoUrlInput.value.trim()));
+        videoUrlInput.addEventListener('keypress', (e) => e.key === 'Enter' && loadVideoButton.click());
+        copyButton.addEventListener('click', () => {
+            sessionLinkInput.select();
+            document.execCommand('copy');
+            copySuccessMessage.textContent = 'تم نسخ الرابط!';
+            setTimeout(() => { copySuccessMessage.textContent = '' }, 2000);
+        });
+    </script>
+</body>
+</html>
