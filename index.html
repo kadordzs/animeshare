@@ -16,12 +16,27 @@
         #chat-messages::-webkit-scrollbar-track, #online-users::-webkit-scrollbar-track { background: #2d3748; }
         #chat-messages::-webkit-scrollbar-thumb, #online-users::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 4px; }
         #chat-messages::-webkit-scrollbar-thumb:hover, #online-users::-webkit-scrollbar-thumb:hover { background: #718096; }
+        .avatar { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; border: 2px solid #4a5568; }
+        .chat-avatar { width: 30px; height: 30px; }
     </style>
 </head>
 <body class="bg-gray-900 text-white">
 
+    <!-- Welcome Modal -->
+    <div id="welcome-modal" class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-md text-center">
+            <h2 class="text-2xl font-bold mb-4">أهلاً بك في "شاهدوا معًا"</h2>
+            <p class="text-gray-400 mb-6">أدخل اسمك للانضمام إلى الجلسة.</p>
+            <div class="space-y-4">
+                <input id="name-input" type="text" placeholder="اكتب اسمك هنا" class="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500">
+                <input id="avatar-input" type="text" placeholder="رابط صورتك الرمزية (اختياري)" class="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500">
+                <button id="join-button" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-md transition-colors duration-300">انضم الآن</button>
+            </div>
+        </div>
+    </div>
+
     <div class="flex flex-col lg:flex-row h-screen">
-        <!-- Main Content (Video) -->
+        <!-- Main Content -->
         <main class="w-full lg:w-2/3 p-4 flex flex-col">
             <header class="text-center my-4">
                 <h1 class="text-4xl font-bold text-red-500">شاهدوا معًا</h1>
@@ -29,8 +44,8 @@
             </header>
 
             <div class="flex flex-col sm:flex-row gap-2 mb-4">
-                <input id="video-url-input" type="text" placeholder="الصق رابط فيديو يوتيوب أو أي موقع آخر هنا..." class="flex-grow bg-gray-800 text-white p-3 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all">
-                <button id="load-video-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-md transition-colors duration-300">تحميل الفيديو</button>
+                <input id="video-url-input" type="text" placeholder="الصق رابط فيديو يوتيوب أو أي موقع آخر هنا..." class="flex-grow bg-gray-800 text-white p-3 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                <button id="load-video-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-md transition-colors">تحميل الفيديو</button>
             </div>
             
             <div id="player-container" class="bg-black rounded-lg shadow-2xl overflow-hidden flex-grow">
@@ -45,38 +60,34 @@
             </div>
         </main>
 
-        <!-- Sidebar (Chat & Info) -->
+        <!-- Sidebar -->
         <aside class="w-full lg:w-1/3 bg-gray-800 flex flex-col p-4 border-r-2 border-gray-700 h-screen lg:h-auto">
             <div class="bg-gray-900 p-4 rounded-lg mb-4">
                 <div class="text-center mb-4">
                     <h2 class="text-lg font-semibold mb-2">شارك هذه الجلسة</h2>
                     <div class="flex items-center justify-center bg-gray-700 rounded-md p-2">
                         <input id="session-link" type="text" class="bg-transparent text-white w-full text-center focus:outline-none" readonly>
-                        <button id="copy-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md mr-2 transition-colors duration-300">نسخ</button>
+                        <button id="copy-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md mr-2">نسخ</button>
                     </div>
                     <p id="copy-success" class="text-green-400 mt-2 h-4"></p>
                 </div>
                  <div class="text-center">
                     <p class="text-xs text-gray-400">اسمك (اضغط للتغيير):</p>
-                    <p id="user-name-display" class="text-lg text-green-400 break-all cursor-pointer hover:text-green-300 transition-colors">غير متصل</p>
+                    <p id="user-name-display" class="text-lg text-green-400 break-all cursor-pointer hover:text-green-300">غير متصل</p>
                 </div>
             </div>
             
-            <!-- Online Users -->
             <div class="bg-gray-900 rounded-lg mb-4">
                 <h2 class="text-xl font-bold p-4 text-center border-b border-gray-700">المتواجدون الآن</h2>
-                <div id="online-users" class="p-4 overflow-y-auto max-h-32">
-                    <!-- Online users list will be here -->
-                </div>
+                <div id="online-users" class="p-4 overflow-y-auto max-h-32"></div>
             </div>
 
-            <!-- Chat -->
             <div class="flex-grow flex flex-col bg-gray-900 rounded-lg">
                 <h2 class="text-xl font-bold p-4 text-center border-b border-gray-700">المحادثة</h2>
                 <div id="chat-messages" class="flex-grow p-4 overflow-y-auto"></div>
                 <form id="chat-form" class="p-4 border-t border-gray-700 flex gap-2">
                     <input id="chat-input" type="text" placeholder="اكتب رسالتك..." class="flex-grow bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
-                    <button type="submit" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md transition-colors">إرسال</button>
+                    <button type="submit" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md">إرسال</button>
                 </form>
             </div>
         </aside>
@@ -86,9 +97,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, serverTimestamp, query, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getDatabase, ref, onValue, set, onDisconnect } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
-        // --- Firebase Config ---
         const firebaseConfig = {
             apiKey: "AIzaSyAIoruD5BJKkDVpaQqBxgjKi4Gga5FoyqI",
             authDomain: "shereanime-a5ba4.firebaseapp.com",
@@ -99,8 +108,11 @@
             measurementId: "G-MMQ1LM3XH3"
         };
         
-        // --- DOM Elements ---
         const elements = {
+            welcomeModal: document.getElementById('welcome-modal'),
+            nameInput: document.getElementById('name-input'),
+            avatarInput: document.getElementById('avatar-input'),
+            joinButton: document.getElementById('join-button'),
             videoUrlInput: document.getElementById('video-url-input'),
             loadVideoButton: document.getElementById('load-video-button'),
             sessionLinkInput: document.getElementById('session-link'),
@@ -117,25 +129,23 @@
             statusMessage: document.getElementById('status-message'),
         };
 
-        // --- App State ---
         let appState = {
-            db: null,
-            auth: null,
-            player: null,
-            sessionId: null,
-            sessionDocRef: null,
-            usersColRef: null, // For presence
-            messagesColRef: null,
-            userId: null,
-            userName: null,
-            localUpdate: false,
-            sessionUnsubscribe: null,
-            messagesUnsubscribe: null,
-            usersUnsubscribe: null,
+            db: null, auth: null, player: null, sessionId: null, sessionDocRef: null,
+            usersColRef: null, messagesColRef: null, userId: null, userName: null, userAvatar: null,
+            isSyncing: false, // Prevents player state rebound
+            sessionUnsubscribe: null, messagesUnsubscribe: null, usersUnsubscribe: null,
         };
 
-        // --- Main App Logic ---
         function main() {
+            if (localStorage.getItem('watchTogetherUserName')) {
+                elements.welcomeModal.classList.add('hidden');
+                initializeAppAndAuth();
+            } else {
+                elements.welcomeModal.classList.remove('hidden');
+            }
+        }
+
+        function initializeAppAndAuth() {
             try {
                 const app = initializeApp(firebaseConfig);
                 appState.db = getFirestore(app);
@@ -143,7 +153,7 @@
                 handleAuthentication();
             } catch (e) {
                 console.error("Firebase initialization failed:", e);
-                elements.statusMessage.textContent = "فشل تهيئة Firebase. تأكد من صحة الإعدادات.";
+                elements.statusMessage.textContent = "فشل تهيئة Firebase.";
                 elements.statusMessage.classList.replace('text-yellow-400', 'text-red-500');
             }
         }
@@ -158,24 +168,18 @@
                     setupSession();
                 } else {
                     elements.statusMessage.textContent = "جارِ تسجيل الدخول...";
-                    try {
-                        await signInAnonymously(appState.auth);
-                    } catch (error) {
+                    await signInAnonymously(appState.auth).catch(error => {
                         console.error("Anonymous sign-in failed:", error);
-                        elements.statusMessage.textContent = "فشل تسجيل الدخول. تأكد من تفعيل 'Anonymous sign-in' في Firebase.";
+                        elements.statusMessage.textContent = "فشل تسجيل الدخول.";
                         elements.statusMessage.classList.replace('text-yellow-400', 'text-red-500');
-                    }
+                    });
                 }
             });
         }
         
         async function setupUser() {
-            let savedName = localStorage.getItem('watchTogetherUserName');
-            if (!savedName) {
-                savedName = prompt("الرجاء إدخال اسمك للمحادثة:") || `مستخدم-${Math.floor(Math.random() * 1000)}`;
-                localStorage.setItem('watchTogetherUserName', savedName);
-            }
-            appState.userName = savedName;
+            appState.userName = localStorage.getItem('watchTogetherUserName');
+            appState.userAvatar = localStorage.getItem('watchTogetherUserAvatar') || `https://placehold.co/100x100/EFEFEF/AAAAAA?text=${appState.userName.charAt(0)}`;
             elements.userNameDisplay.textContent = appState.userName;
         }
 
@@ -183,74 +187,52 @@
             const urlParams = new URLSearchParams(window.location.search);
             let currentSessionId = urlParams.get('session');
             let shareableLink = window.location.href; 
-            
             if (!currentSessionId) {
                 currentSessionId = `${appState.userId}-${Date.now()}`;
                 const baseUrl = window.location.href.split('?')[0];
                 shareableLink = `${baseUrl}?session=${currentSessionId}`;
             }
-
             appState.sessionId = currentSessionId;
             elements.sessionLinkInput.value = shareableLink;
-            
             appState.sessionDocRef = doc(appState.db, "sessions", appState.sessionId);
             appState.messagesColRef = collection(appState.sessionDocRef, "messages");
             appState.usersColRef = collection(appState.sessionDocRef, "users");
-
             managePresence();
             attachListeners();
         }
 
         async function managePresence() {
             const userStatusRef = doc(appState.usersColRef, appState.userId);
-            
-            // Using Realtime Database for more reliable disconnects if needed, but Firestore is simpler here.
-            // For now, a simple Firestore presence.
-            await setDoc(userStatusRef, { name: appState.userName, online: true });
-            
-            window.addEventListener('beforeunload', () => {
-                deleteDoc(userStatusRef);
-            });
+            await setDoc(userStatusRef, { name: appState.userName, avatar: appState.userAvatar, online: true });
+            window.addEventListener('beforeunload', () => deleteDoc(userStatusRef));
         }
 
         function attachListeners() {
-            // Detach old listeners
             if (appState.sessionUnsubscribe) appState.sessionUnsubscribe();
-            if (appState.messagesUnsubscribe) appState.messagesUnsubscribe();
-            if (appState.usersUnsubscribe) appState.usersUnsubscribe();
-
-            // Session state listener
             appState.sessionUnsubscribe = onSnapshot(appState.sessionDocRef, (snapshot) => {
                 elements.statusMessage.textContent = "الجلسة جاهزة للمشاهدة!";
                 elements.statusMessage.classList.replace('text-yellow-400', 'text-green-400');
-                if (appState.localUpdate) { appState.localUpdate = false; return; }
                 const data = snapshot.exists() ? snapshot.data() : {};
                 if (data.videoUrl && data.videoUrl !== elements.videoUrlInput.getAttribute('data-current-url')) {
                     renderVideo(data.videoUrl, data.type);
                 }
                 syncPlayerState(data);
-            }, (error) => {
-                console.error("Session listener error:", error);
-                elements.statusMessage.textContent = "خطأ في الاتصال بالجلسة.";
-                elements.statusMessage.classList.replace('text-green-400', 'text-red-500');
             });
-
-            // Online users listener
+            if (appState.usersUnsubscribe) appState.usersUnsubscribe();
             appState.usersUnsubscribe = onSnapshot(appState.usersColRef, (snapshot) => {
                 elements.onlineUsers.innerHTML = '';
                 snapshot.forEach(doc => {
                     const user = doc.data();
                     const userEl = document.createElement('div');
-                    userEl.textContent = user.name;
-                    userEl.classList.add('text-gray-300', 'p-1');
+                    userEl.classList.add('flex', 'items-center', 'p-1', 'space-x-2', 'space-x-reverse');
+                    userEl.innerHTML = `<img src="${user.avatar}" class="avatar chat-avatar" onerror="this.src='https://placehold.co/100x100/EFEFEF/AAAAAA?text=${user.name.charAt(0)}'"><span class="text-gray-300">${user.name}</span>`;
                     elements.onlineUsers.appendChild(userEl);
                 });
             });
-
-            // Chat messages listener
+            if (appState.messagesUnsubscribe) appState.messagesUnsubscribe();
             appState.messagesUnsubscribe = onSnapshot(query(appState.messagesColRef), (snapshot) => {
                 const allMessages = [];
-                snapshot.forEach(doc => allMessages.push({ ...doc.data(), id: doc.id }));
+                snapshot.forEach(doc => allMessages.push(doc.data()));
                 allMessages.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
                 elements.chatMessages.innerHTML = '';
                 allMessages.forEach(addMessageToDOM);
@@ -260,6 +242,7 @@
         
         function syncPlayerState(data) {
              if (appState.player && data.type === 'youtube' && appState.player.getPlayerState) {
+                appState.isSyncing = true;
                 const playerState = appState.player.getPlayerState();
                 if (data.isPlaying && playerState !== YT.PlayerState.PLAYING) { appState.player.playVideo(); } 
                 else if (!data.isPlaying && playerState !== YT.PlayerState.PAUSED) { appState.player.pauseVideo(); }
@@ -267,27 +250,29 @@
                    const timeDifference = Math.abs((data.currentTime || 0) - (appState.player.getCurrentTime() || 0));
                     if (timeDifference > 2.5) { appState.player.seekTo(data.currentTime, true); }
                 }
+                setTimeout(() => appState.isSyncing = false, 500); // Reset sync flag after a short delay
             }
         }
 
         function addMessageToDOM(message) {
             const messageEl = document.createElement('div');
-            messageEl.classList.add('mb-3', 'p-3', 'rounded-lg', 'w-fit', 'max-w-xs', 'break-words');
             const isMe = message.senderId === appState.userId;
-            messageEl.classList.add(isMe ? 'bg-red-700' : 'bg-gray-600', isMe ? 'ml-auto' : 'mr-auto');
-            messageEl.innerHTML = `<p class="font-bold text-sm">${message.senderName || 'مستخدم'}</p><p class="text-white mt-1">${message.text}</p>`;
+            messageEl.classList.add('flex', 'items-start', 'mb-3', 'gap-3', isMe ? 'ml-auto' : 'mr-auto', isMe ? 'flex-row-reverse' : '');
+            
+            messageEl.innerHTML = `
+                <img src="${message.senderAvatar}" class="avatar chat-avatar" onerror="this.src='https://placehold.co/100x100/EFEFEF/AAAAAA?text=${message.senderName.charAt(0)}'">
+                <div class="p-3 rounded-lg w-fit max-w-xs break-words ${isMe ? 'bg-red-700' : 'bg-gray-600'}">
+                    <p class="font-bold text-sm">${message.senderName || 'مستخدم'}</p>
+                    <p class="text-white mt-1">${message.text}</p>
+                </div>
+            `;
             elements.chatMessages.appendChild(messageEl);
         }
 
         async function updateFirestoreState(newState) {
             if (!appState.sessionDocRef) return;
-            appState.localUpdate = true;
-            try { 
-                await setDoc(appState.sessionDocRef, newState, { merge: true }); 
-            } catch (error) { 
-                console.error("Error updating Firestore:", error); 
-                elements.statusMessage.textContent = "فشل تحديث الحالة.";
-            }
+            try { await setDoc(appState.sessionDocRef, newState, { merge: true }); } 
+            catch (error) { console.error("Error updating Firestore:", error); }
         }
         
         window.onYouTubeIframeAPIReady = () => console.log("YouTube API Ready.");
@@ -305,6 +290,7 @@
         }
         
         function onPlayerStateChange(event) {
+            if (appState.isSyncing) return; // Prevent state rebound
             const isPlaying = (event.data === YT.PlayerState.PLAYING);
             updateFirestoreState({ isPlaying: isPlaying, currentTime: event.target.getCurrentTime() });
         }
@@ -319,7 +305,6 @@
             elements.videoUrlInput.value = url;
             elements.videoUrlInput.setAttribute('data-current-url', url);
             elements.placeholderDiv.classList.add('hidden');
-            
             if (type === 'youtube') {
                 const videoId = getYouTubeVideoId(url);
                 elements.iframePlayer.classList.add('hidden');
@@ -333,7 +318,19 @@
             }
         }
         
-        // --- Event Listeners Setup ---
+        elements.joinButton.addEventListener('click', () => {
+            const name = elements.nameInput.value.trim();
+            const avatar = elements.avatarInput.value.trim();
+            if (!name) {
+                alert("الرجاء إدخال اسم.");
+                return;
+            }
+            localStorage.setItem('watchTogetherUserName', name);
+            if (avatar) localStorage.setItem('watchTogetherUserAvatar', avatar);
+            elements.welcomeModal.classList.add('hidden');
+            initializeAppAndAuth();
+        });
+
         elements.loadVideoButton.addEventListener('click', () => {
             const url = elements.videoUrlInput.value.trim();
             if (!url) return;
@@ -357,6 +354,7 @@
                     text: messageText, 
                     senderId: appState.userId,
                     senderName: appState.userName,
+                    senderAvatar: appState.userAvatar,
                     createdAt: serverTimestamp() 
                 });
             }
@@ -364,11 +362,11 @@
         
         elements.userNameDisplay.addEventListener('click', async () => {
             const newName = prompt("أدخل اسمك الجديد:", appState.userName);
-            if (newName && newName.trim() !== "") {
+            if (newName && newName.trim()) {
                 appState.userName = newName.trim();
                 localStorage.setItem('watchTogetherUserName', appState.userName);
                 elements.userNameDisplay.textContent = appState.userName;
-                await setDoc(doc(appState.usersColRef, appState.userId), { name: appState.userName, online: true });
+                await setDoc(doc(appState.usersColRef, appState.userId), { name: appState.userName }, { merge: true });
             }
         });
         
