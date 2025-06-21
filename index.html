@@ -292,7 +292,6 @@
                 const data = snapshot.exists() ? snapshot.data() : {};
                 const source = snapshot.metadata.hasPendingWrites ? "Local" : "Server";
 
-                // Only react to server changes to avoid local echo
                 if (source === "Server") {
                     if (data.videoUrl && data.videoUrl !== elements.videoUrlInput.getAttribute('data-current-url')) {
                         renderVideo(data.videoUrl, data.type);
@@ -527,10 +526,16 @@
         });
 
         elements.copyButton.addEventListener('click', () => {
-            navigator.clipboard.writeText(elements.sessionLinkInput.value).then(() => {
+            elements.sessionLinkInput.select();
+            elements.sessionLinkInput.setSelectionRange(0, 99999); // For mobile devices
+            try {
+                document.execCommand('copy');
                 elements.copySuccessMessage.textContent = 'Link copied!';
                 setTimeout(() => { elements.copySuccessMessage.textContent = '' }, 2000);
-            });
+            } catch (err) {
+                console.error('Fallback: Oops, unable to copy', err);
+                alert('Could not copy the link automatically. Please copy it manually.');
+            }
         });
         
         elements.chatForm.addEventListener('submit', async (e) => {
