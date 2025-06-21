@@ -1,93 +1,158 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>شاهدوا معًا</title>
+    <title>Watch Together</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        body { font-family: 'Cairo', sans-serif; }
-        #player-container { position: relative; width: 100%; padding-top: 56.25%; }
-        #player, #iframe-player { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        #chat-messages::-webkit-scrollbar, #online-users::-webkit-scrollbar { width: 8px; }
-        #chat-messages::-webkit-scrollbar-track, #online-users::-webkit-scrollbar-track { background: #2d3748; }
-        #chat-messages::-webkit-scrollbar-thumb, #online-users::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 4px; }
-        #chat-messages::-webkit-scrollbar-thumb:hover, #online-users::-webkit-scrollbar-thumb:hover { background: #718096; }
-        .avatar { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; border: 2px solid #4a5568; }
-        .chat-avatar { width: 30px; height: 30px; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: linear-gradient(135deg, #10101a, #0d0d15);
+        }
+        .glassmorphism {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .main-gradient-text {
+            background: -webkit-linear-gradient(45deg, #f87171, #ef4444, #dc2626);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, #ef4444, #dc2626);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3);
+        }
+        .avatar { width: 48px; height: 48px; object-fit: cover; border-radius: 50%; border: 2px solid #ef4444; }
+        .chat-avatar { width: 32px; height: 32px; border-color: #f87171; }
+        .modal-enter { animation: fadeIn 0.3s ease-out; }
+        .modal-leave { animation: fadeOut 0.3s ease-in forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.95); } }
+        
+        .collapsible-content {
+            transition: max-height 0.5s ease-in-out, padding 0.5s ease-in-out;
+            max-height: 500px;
+            overflow: hidden;
+        }
+        .collapsible-content.collapsed {
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
     </style>
 </head>
-<body class="bg-gray-900 text-white">
+<body class="text-gray-200">
 
     <!-- Welcome Modal -->
-    <div id="welcome-modal" class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
-        <div class="bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-md text-center">
-            <h2 class="text-2xl font-bold mb-4">أهلاً بك في "شاهدوا معًا"</h2>
-            <p class="text-gray-400 mb-6">أدخل اسمك للانضمام إلى الجلسة.</p>
+    <div id="welcome-modal" class="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4">
+        <div id="welcome-modal-content" class="glassmorphism p-8 rounded-2xl shadow-2xl w-full max-w-md text-center modal-enter">
+            <h2 class="text-3xl font-black mb-2 main-gradient-text">Welcome to Watch Together</h2>
+            <p class="text-gray-400 mb-6">Enter your details to join the session and enjoy the show.</p>
+            <div class="mb-6">
+                <label for="avatar-upload" class="cursor-pointer">
+                    <img id="avatar-preview" src="https://placehold.co/128x128/1f2937/9ca3af?text=?" class="w-32 h-32 rounded-full mx-auto mb-2 border-4 border-gray-700 object-cover hover:opacity-80 transition-opacity">
+                    <span class="text-xs text-gray-500">Click image to upload</span>
+                </label>
+                <input id="avatar-upload" type="file" accept="image/*" class="hidden">
+            </div>
             <div class="space-y-4">
-                <input id="name-input" type="text" placeholder="اكتب اسمك هنا" class="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500">
-                <input id="avatar-input" type="text" placeholder="رابط صورتك الرمزية (اختياري)" class="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500">
-                <button id="join-button" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-md transition-colors duration-300">انضم الآن</button>
+                <input id="name-input" type="text" placeholder="Enter your name..." class="w-full bg-gray-700/50 text-white p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all">
+                <button id="join-button" class="w-full btn-primary text-white font-bold py-3 px-6 rounded-lg flex items-center justify-center gap-2">
+                    <i data-lucide="arrow-right-to-line"></i>
+                    <span>Join Now</span>
+                </button>
             </div>
         </div>
     </div>
 
     <div class="flex flex-col lg:flex-row h-screen">
         <!-- Main Content -->
-        <main class="w-full lg:w-2/3 p-4 flex flex-col">
-            <header class="text-center my-4">
-                <h1 class="text-4xl font-bold text-red-500">شاهدوا معًا</h1>
-                <p id="status-message" class="text-yellow-400 mt-2">جارِ الاتصال...</p>
+        <main class="w-full lg:w-2/3 p-4 lg:p-6 flex flex-col">
+            <header class="flex justify-between items-center mb-4">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="clapperboard" class="w-10 h-10 main-gradient-text"></i>
+                    <h1 class="text-4xl font-black main-gradient-text">Watch Together</h1>
+                </div>
+                <p id="status-message" class="text-yellow-400 text-sm flex items-center gap-2"><i data-lucide="wifi" class="w-4 h-4"></i><span id="status-text">Connecting...</span></p>
             </header>
 
-            <div class="flex flex-col sm:flex-row gap-2 mb-4">
-                <input id="video-url-input" type="text" placeholder="الصق رابط فيديو يوتيوب أو أي موقع آخر هنا..." class="flex-grow bg-gray-800 text-white p-3 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-                <button id="load-video-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-md transition-colors">تحميل الفيديو</button>
+            <div class="flex flex-col sm:flex-row gap-3 mb-4">
+                <div class="relative flex-grow">
+                    <i data-lucide="link" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"></i>
+                    <input id="video-url-input" type="text" placeholder="Paste a video link here..." class="w-full bg-gray-800/50 text-white p-3 pl-10 rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all">
+                </div>
+                <button id="load-video-button" class="btn-primary text-white font-bold py-3 px-5 rounded-lg flex items-center justify-center gap-2">
+                    <i data-lucide="play-circle"></i>
+                    <span>Load</span>
+                </button>
             </div>
             
-            <div id="player-container" class="bg-black rounded-lg shadow-2xl overflow-hidden flex-grow">
+            <div id="player-container" class="bg-black rounded-xl shadow-2xl overflow-hidden flex-grow shadow-red-500/10">
                 <div id="player"></div>
                 <iframe id="iframe-player" class="hidden" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                <div id="placeholder" class="w-full h-full flex items-center justify-center bg-gray-800">
-                    <div class="text-center text-gray-500">
-                        <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.55a2 2 0 010 3.8l-4.55 2.2M4 6h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" /></svg>
-                        <p class="mt-2">الفيديو سيظهر هنا</p>
+                <div id="placeholder" class="w-full h-full flex items-center justify-center bg-gray-900/50">
+                    <div class="text-center text-gray-600">
+                        <i data-lucide="film" class="mx-auto w-16 h-16 opacity-50"></i>
+                        <p class="mt-4 text-lg">Paste a video link to get started</p>
                     </div>
                 </div>
             </div>
         </main>
 
         <!-- Sidebar -->
-        <aside class="w-full lg:w-1/3 bg-gray-800 flex flex-col p-4 border-r-2 border-gray-700 h-screen lg:h-auto">
-            <div class="bg-gray-900 p-4 rounded-lg mb-4">
-                <div class="text-center mb-4">
-                    <h2 class="text-lg font-semibold mb-2">شارك هذه الجلسة</h2>
-                    <div class="flex items-center justify-center bg-gray-700 rounded-md p-2">
-                        <input id="session-link" type="text" class="bg-transparent text-white w-full text-center focus:outline-none" readonly>
-                        <button id="copy-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md mr-2">نسخ</button>
-                    </div>
-                    <p id="copy-success" class="text-green-400 mt-2 h-4"></p>
-                </div>
-                 <div class="text-center">
-                    <p class="text-xs text-gray-400">اسمك (اضغط للتغيير):</p>
-                    <p id="user-name-display" class="text-lg text-green-400 break-all cursor-pointer hover:text-green-300">غير متصل</p>
-                </div>
+        <aside class="w-full lg:w-1/3 glassmorphism flex flex-col p-4 border-l-2 border-gray-800 h-screen lg:h-auto overflow-y-auto">
+            <div class="p-4 rounded-lg mb-4 text-center">
+                <label for="avatar-profile-upload" class="cursor-pointer">
+                    <img id="user-avatar-display" src="" class="avatar mx-auto mb-2 hover:opacity-80 transition-opacity">
+                </label>
+                <input id="avatar-profile-upload" type="file" accept="image/*" class="hidden">
+                <p id="user-name-display" class="text-xl font-bold text-gray-100 break-all cursor-pointer hover:text-red-400">...</p>
             </div>
             
-            <div class="bg-gray-900 rounded-lg mb-4">
-                <h2 class="text-xl font-bold p-4 text-center border-b border-gray-700">المتواجدون الآن</h2>
-                <div id="online-users" class="p-4 overflow-y-auto max-h-32"></div>
+            <div class="glassmorphism rounded-xl mb-4">
+                <div id="toggle-share" class="flex justify-between items-center p-3 cursor-pointer">
+                    <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider">Share Session</h2>
+                    <i id="icon-share" data-lucide="chevron-down" class="transition-transform"></i>
+                </div>
+                <div id="content-share" class="collapsible-content px-4 pb-4">
+                     <div class="flex items-center justify-center bg-gray-800/50 rounded-lg p-2">
+                        <input id="session-link" type="text" class="bg-transparent text-gray-400 w-full text-center focus:outline-none text-xs" readonly>
+                        <button id="copy-button" class="bg-red-500/20 hover:bg-red-500/40 text-red-400 font-bold py-2 px-3 rounded-md ml-2 transition-colors">
+                            <i data-lucide="copy"></i>
+                        </button>
+                    </div>
+                    <p id="copy-success" class="text-green-400 text-xs mt-2 h-4 text-center"></p>
+                </div>
             </div>
 
-            <div class="flex-grow flex flex-col bg-gray-900 rounded-lg">
-                <h2 class="text-xl font-bold p-4 text-center border-b border-gray-700">المحادثة</h2>
+            <div class="glassmorphism rounded-xl mb-4">
+                <div id="toggle-online" class="flex justify-between items-center p-3 cursor-pointer">
+                    <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider">Online</h2>
+                    <i id="icon-online" data-lucide="chevron-down" class="transition-transform"></i>
+                </div>
+                <div id="content-online" class="collapsible-content p-2">
+                    <div id="online-users" class="overflow-y-auto max-h-32"></div>
+                </div>
+            </div>
+
+            <div class="glassmorphism rounded-xl flex-1 flex flex-col min-h-0">
+                <h2 class="text-sm font-bold text-gray-400 p-3 text-center border-b border-gray-700/50 uppercase tracking-wider">Chat</h2>
                 <div id="chat-messages" class="flex-grow p-4 overflow-y-auto"></div>
-                <form id="chat-form" class="p-4 border-t border-gray-700 flex gap-2">
-                    <input id="chat-input" type="text" placeholder="اكتب رسالتك..." class="flex-grow bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
-                    <button type="submit" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md">إرسال</button>
+                <form id="chat-form" class="p-2 border-t border-gray-700/50 flex gap-2">
+                    <input id="chat-input" type="text" placeholder="Type a message..." class="flex-grow bg-gray-800/50 text-white p-2 rounded-lg border border-gray-700/50 focus:outline-none focus:ring-1 focus:ring-red-500">
+                    <button type="submit" class="btn-primary text-white p-2 rounded-lg"><i data-lucide="send"></i></button>
                 </form>
             </div>
         </aside>
@@ -110,8 +175,11 @@
         
         const elements = {
             welcomeModal: document.getElementById('welcome-modal'),
+            welcomeModalContent: document.getElementById('welcome-modal-content'),
             nameInput: document.getElementById('name-input'),
-            avatarInput: document.getElementById('avatar-input'),
+            avatarUpload: document.getElementById('avatar-upload'),
+            avatarProfileUpload: document.getElementById('avatar-profile-upload'),
+            avatarPreview: document.getElementById('avatar-preview'),
             joinButton: document.getElementById('join-button'),
             videoUrlInput: document.getElementById('video-url-input'),
             loadVideoButton: document.getElementById('load-video-button'),
@@ -125,24 +193,34 @@
             chatInput: document.getElementById('chat-input'),
             chatMessages: document.getElementById('chat-messages'),
             userNameDisplay: document.getElementById('user-name-display'),
+            userAvatarDisplay: document.getElementById('user-avatar-display'),
             onlineUsers: document.getElementById('online-users'),
             statusMessage: document.getElementById('status-message'),
+            statusText: document.getElementById('status-text'),
+            toggleShare: document.getElementById('toggle-share'),
+            contentShare: document.getElementById('content-share'),
+            iconShare: document.getElementById('icon-share'),
+            toggleOnline: document.getElementById('toggle-online'),
+            contentOnline: document.getElementById('content-online'),
+            iconOnline: document.getElementById('icon-online'),
         };
 
         let appState = {
             db: null, auth: null, player: null, sessionId: null, sessionDocRef: null,
             usersColRef: null, messagesColRef: null, userId: null, userName: null, userAvatar: null,
-            isSyncing: false, // Prevents player state rebound
+            isSyncing: false, localStateChange: false,
             sessionUnsubscribe: null, messagesUnsubscribe: null, usersUnsubscribe: null,
         };
 
         function main() {
+            lucide.createIcons();
             if (localStorage.getItem('watchTogetherUserName')) {
                 elements.welcomeModal.classList.add('hidden');
                 initializeAppAndAuth();
             } else {
                 elements.welcomeModal.classList.remove('hidden');
             }
+            setupCollapsibleSections();
         }
 
         function initializeAppAndAuth() {
@@ -153,8 +231,7 @@
                 handleAuthentication();
             } catch (e) {
                 console.error("Firebase initialization failed:", e);
-                elements.statusMessage.textContent = "فشل تهيئة Firebase.";
-                elements.statusMessage.classList.replace('text-yellow-400', 'text-red-500');
+                elements.statusText.textContent = "Firebase Init Failed.";
             }
         }
 
@@ -163,15 +240,13 @@
                 if (user) {
                     appState.userId = user.uid;
                     await setupUser();
-                    elements.statusMessage.textContent = "متصل! جارِ تحميل الجلسة...";
-                    elements.statusMessage.classList.replace('text-yellow-400', 'text-green-400');
+                    elements.statusText.textContent = "Connected! Loading session...";
                     setupSession();
                 } else {
-                    elements.statusMessage.textContent = "جارِ تسجيل الدخول...";
+                    elements.statusText.textContent = "Signing in...";
                     await signInAnonymously(appState.auth).catch(error => {
                         console.error("Anonymous sign-in failed:", error);
-                        elements.statusMessage.textContent = "فشل تسجيل الدخول.";
-                        elements.statusMessage.classList.replace('text-yellow-400', 'text-red-500');
+                        elements.statusText.textContent = "Sign-in Failed.";
                     });
                 }
             });
@@ -179,8 +254,9 @@
         
         async function setupUser() {
             appState.userName = localStorage.getItem('watchTogetherUserName');
-            appState.userAvatar = localStorage.getItem('watchTogetherUserAvatar') || `https://placehold.co/100x100/EFEFEF/AAAAAA?text=${appState.userName.charAt(0)}`;
+            appState.userAvatar = localStorage.getItem('watchTogetherUserAvatar') || `https://placehold.co/128x128/ef4444/ffffff?text=${appState.userName.charAt(0)}`;
             elements.userNameDisplay.textContent = appState.userName;
+            elements.userAvatarDisplay.src = appState.userAvatar;
         }
 
         function setupSession() {
@@ -203,15 +279,16 @@
 
         async function managePresence() {
             const userStatusRef = doc(appState.usersColRef, appState.userId);
-            await setDoc(userStatusRef, { name: appState.userName, avatar: appState.userAvatar, online: true });
+            await setDoc(userStatusRef, { name: appState.userName, avatar: appState.userAvatar });
             window.addEventListener('beforeunload', () => deleteDoc(userStatusRef));
         }
 
         function attachListeners() {
             if (appState.sessionUnsubscribe) appState.sessionUnsubscribe();
             appState.sessionUnsubscribe = onSnapshot(appState.sessionDocRef, (snapshot) => {
-                elements.statusMessage.textContent = "الجلسة جاهزة للمشاهدة!";
+                elements.statusText.textContent = "Session Ready!";
                 elements.statusMessage.classList.replace('text-yellow-400', 'text-green-400');
+                if (appState.localStateChange) { appState.localStateChange = false; return; }
                 const data = snapshot.exists() ? snapshot.data() : {};
                 if (data.videoUrl && data.videoUrl !== elements.videoUrlInput.getAttribute('data-current-url')) {
                     renderVideo(data.videoUrl, data.type);
@@ -224,16 +301,14 @@
                 snapshot.forEach(doc => {
                     const user = doc.data();
                     const userEl = document.createElement('div');
-                    userEl.classList.add('flex', 'items-center', 'p-1', 'space-x-2', 'space-x-reverse');
-                    userEl.innerHTML = `<img src="${user.avatar}" class="avatar chat-avatar" onerror="this.src='https://placehold.co/100x100/EFEFEF/AAAAAA?text=${user.name.charAt(0)}'"><span class="text-gray-300">${user.name}</span>`;
+                    userEl.classList.add('flex', 'items-center', 'p-2', 'gap-3', 'rounded-lg', 'hover:bg-white/5');
+                    userEl.innerHTML = `<img src="${user.avatar}" class="avatar chat-avatar" onerror="this.src='https://placehold.co/100x100/ef4444/ffffff?text=${user.name.charAt(0)}'"><span class="text-gray-300">${user.name}</span>`;
                     elements.onlineUsers.appendChild(userEl);
                 });
             });
             if (appState.messagesUnsubscribe) appState.messagesUnsubscribe();
             appState.messagesUnsubscribe = onSnapshot(query(appState.messagesColRef), (snapshot) => {
-                const allMessages = [];
-                snapshot.forEach(doc => allMessages.push(doc.data()));
-                allMessages.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+                const allMessages = snapshot.docs.map(doc => doc.data()).sort((a,b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
                 elements.chatMessages.innerHTML = '';
                 allMessages.forEach(addMessageToDOM);
                 elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
@@ -244,25 +319,24 @@
              if (appState.player && data.type === 'youtube' && appState.player.getPlayerState) {
                 appState.isSyncing = true;
                 const playerState = appState.player.getPlayerState();
-                if (data.isPlaying && playerState !== YT.PlayerState.PLAYING) { appState.player.playVideo(); } 
-                else if (!data.isPlaying && playerState !== YT.PlayerState.PAUSED) { appState.player.pauseVideo(); }
+                if (data.isPlaying && playerState !== YT.PlayerState.PLAYING) appState.player.playVideo(); 
+                else if (!data.isPlaying && playerState !== YT.PlayerState.PAUSED) appState.player.pauseVideo();
                 if (appState.player.getCurrentTime) {
-                   const timeDifference = Math.abs((data.currentTime || 0) - (appState.player.getCurrentTime() || 0));
-                    if (timeDifference > 2.5) { appState.player.seekTo(data.currentTime, true); }
+                   const timeDifference = Math.abs((data.currentTime || 0) - appState.player.getCurrentTime());
+                    if (timeDifference > 2.5) appState.player.seekTo(data.currentTime, true);
                 }
-                setTimeout(() => appState.isSyncing = false, 500); // Reset sync flag after a short delay
+                setTimeout(() => appState.isSyncing = false, 500);
             }
         }
 
         function addMessageToDOM(message) {
             const messageEl = document.createElement('div');
             const isMe = message.senderId === appState.userId;
-            messageEl.classList.add('flex', 'items-start', 'mb-3', 'gap-3', isMe ? 'ml-auto' : 'mr-auto', isMe ? 'flex-row-reverse' : '');
-            
+            messageEl.classList.add('flex', 'items-start', 'mb-3', 'gap-3', isMe ? 'flex-row-reverse' : 'flex-row');
             messageEl.innerHTML = `
-                <img src="${message.senderAvatar}" class="avatar chat-avatar" onerror="this.src='https://placehold.co/100x100/EFEFEF/AAAAAA?text=${message.senderName.charAt(0)}'">
-                <div class="p-3 rounded-lg w-fit max-w-xs break-words ${isMe ? 'bg-red-700' : 'bg-gray-600'}">
-                    <p class="font-bold text-sm">${message.senderName || 'مستخدم'}</p>
+                <img src="${message.senderAvatar}" class="avatar chat-avatar" onerror="this.src='https://placehold.co/100x100/ef4444/ffffff?text=${message.senderName.charAt(0)}'">
+                <div class="p-3 rounded-xl w-fit max-w-xs break-words ${isMe ? 'bg-red-500' : 'bg-gray-700'}">
+                    <p class="font-bold text-sm text-white/80">${message.senderName || 'User'}</p>
                     <p class="text-white mt-1">${message.text}</p>
                 </div>
             `;
@@ -271,6 +345,7 @@
 
         async function updateFirestoreState(newState) {
             if (!appState.sessionDocRef) return;
+            appState.localStateChange = true;
             try { await setDoc(appState.sessionDocRef, newState, { merge: true }); } 
             catch (error) { console.error("Error updating Firestore:", error); }
         }
@@ -284,13 +359,13 @@
                 appState.player = new YT.Player('player', {
                     height: '100%', width: '100%', videoId: videoId,
                     playerVars: { 'playsinline': 1, 'autoplay': 1, 'controls': 1, 'rel': 0 },
-                    events: { 'onReady': (e) => e.target.playVideo(), 'onStateChange': onPlayerStateChange }
+                    events: { 'onStateChange': onPlayerStateChange }
                 });
             }
         }
         
         function onPlayerStateChange(event) {
-            if (appState.isSyncing) return; // Prevent state rebound
+            if (appState.isSyncing) return;
             const isPlaying = (event.data === YT.PlayerState.PLAYING);
             updateFirestoreState({ isPlaying: isPlaying, currentTime: event.target.getCurrentTime() });
         }
@@ -318,18 +393,134 @@
             }
         }
         
-        elements.joinButton.addEventListener('click', () => {
-            const name = elements.nameInput.value.trim();
-            const avatar = elements.avatarInput.value.trim();
-            if (!name) {
-                alert("الرجاء إدخال اسم.");
-                return;
+        /**
+         * Resizes an image file to a maximum size while maintaining aspect ratio.
+         * @param {File} file The image file to resize.
+         * @param {number} maxSize The maximum width or height of the resized image.
+         * @returns {Promise<string>} A promise that resolves with the resized image as a Base64 data URL.
+         */
+        function resizeImage(file, maxSize = 256) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let { width, height } = img;
+
+                        if (width > height) {
+                            if (width > maxSize) {
+                                height *= maxSize / width;
+                                width = maxSize;
+                            }
+                        } else {
+                            if (height > maxSize) {
+                                width *= maxSize / height;
+                                height = maxSize;
+                            }
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.8)); // Use JPEG for better compression
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+
+        async function handleAvatarUpload(file) {
+            if (!file) return;
+            try {
+                const resizedAvatarDataUrl = await resizeImage(file);
+                localStorage.setItem('watchTogetherUserAvatar', resizedAvatarDataUrl);
+                appState.userAvatar = resizedAvatarDataUrl;
+                elements.userAvatarDisplay.src = resizedAvatarDataUrl;
+                if (appState.usersColRef && appState.userId) {
+                    await setDoc(doc(appState.usersColRef, appState.userId), { avatar: resizedAvatarDataUrl }, { merge: true });
+                }
+            } catch (error) {
+                console.error("Image resizing failed:", error);
+                alert("Sorry, there was an error processing the image. Please try another one.");
             }
+        }
+
+        function setupCollapsibleSections() {
+            const sections = [
+                {
+                    trigger: elements.toggleShare,
+                    content: elements.contentShare,
+                    icon: elements.iconShare,
+                    key: 'shareSectionCollapsed'
+                },
+                {
+                    trigger: elements.toggleOnline,
+                    content: elements.contentOnline,
+                    icon: elements.iconOnline,
+                    key: 'onlineSectionCollapsed'
+                }
+            ];
+
+            sections.forEach(section => {
+                const isCollapsed = localStorage.getItem(section.key) === 'true';
+                if (isCollapsed) {
+                    section.content.classList.add('collapsed');
+                    section.icon.classList.add('rotate-180');
+                }
+
+                section.trigger.addEventListener('click', () => {
+                    const currentlyCollapsed = section.content.classList.contains('collapsed');
+                    localStorage.setItem(section.key, !currentlyCollapsed);
+                    section.content.classList.toggle('collapsed');
+                    section.icon.classList.toggle('rotate-180');
+                });
+            });
+        }
+        
+        // --- Event Listeners Setup ---
+        elements.joinButton.addEventListener('click', async () => {
+            const name = elements.nameInput.value.trim();
+            if (!name) { alert("Please enter a name."); return; }
             localStorage.setItem('watchTogetherUserName', name);
-            if (avatar) localStorage.setItem('watchTogetherUserAvatar', avatar);
-            elements.welcomeModal.classList.add('hidden');
-            initializeAppAndAuth();
+            
+            const avatarFile = elements.avatarUpload.files[0];
+            elements.joinButton.disabled = true;
+            elements.joinButton.innerHTML = `<span>Joining...</span>`;
+            
+            try {
+                if (avatarFile) {
+                    const resizedAvatarDataUrl = await resizeImage(avatarFile);
+                    localStorage.setItem('watchTogetherUserAvatar', resizedAvatarDataUrl);
+                } else {
+                    localStorage.removeItem('watchTogetherUserAvatar');
+                }
+
+                elements.welcomeModalContent.classList.add('modal-leave');
+                elements.welcomeModal.addEventListener('animationend', () => elements.welcomeModal.classList.add('hidden'), { once: true });
+                initializeAppAndAuth();
+
+            } catch (error) {
+                console.error("Image processing failed on join:", error);
+                alert("Could not process the image. Please try another one or continue without it.");
+                elements.joinButton.disabled = false;
+                elements.joinButton.innerHTML = `<i data-lucide="arrow-right-to-line"></i><span>Join Now</span>`;
+                lucide.createIcons();
+            }
         });
+
+        elements.avatarUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if(file) {
+                elements.avatarPreview.src = URL.createObjectURL(file);
+            }
+        });
+
+        elements.avatarProfileUpload.addEventListener('change', (e) => handleAvatarUpload(e.target.files[0]));
 
         elements.loadVideoButton.addEventListener('click', () => {
             const url = elements.videoUrlInput.value.trim();
@@ -339,10 +530,10 @@
         });
 
         elements.copyButton.addEventListener('click', () => {
-            elements.sessionLinkInput.select();
-            document.execCommand('copy');
-            elements.copySuccessMessage.textContent = 'تم نسخ الرابط!';
-            setTimeout(() => { elements.copySuccessMessage.textContent = '' }, 2000);
+            navigator.clipboard.writeText(elements.sessionLinkInput.value).then(() => {
+                elements.copySuccessMessage.textContent = 'Link copied!';
+                setTimeout(() => { elements.copySuccessMessage.textContent = '' }, 2000);
+            });
         });
         
         elements.chatForm.addEventListener('submit', async (e) => {
@@ -351,17 +542,15 @@
             if (messageText) {
                 elements.chatInput.value = '';
                 await addDoc(appState.messagesColRef, { 
-                    text: messageText, 
-                    senderId: appState.userId,
-                    senderName: appState.userName,
-                    senderAvatar: appState.userAvatar,
+                    text: messageText, senderId: appState.userId,
+                    senderName: appState.userName, senderAvatar: appState.userAvatar,
                     createdAt: serverTimestamp() 
                 });
             }
         });
         
         elements.userNameDisplay.addEventListener('click', async () => {
-            const newName = prompt("أدخل اسمك الجديد:", appState.userName);
+            const newName = prompt("Enter your new name:", appState.userName);
             if (newName && newName.trim()) {
                 appState.userName = newName.trim();
                 localStorage.setItem('watchTogetherUserName', appState.userName);
