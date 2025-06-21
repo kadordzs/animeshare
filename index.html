@@ -12,10 +12,10 @@
         body { font-family: 'Cairo', sans-serif; }
         #player-container { position: relative; width: 100%; padding-top: 56.25%; }
         #player, #iframe-player { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        #chat-messages::-webkit-scrollbar { width: 8px; }
-        #chat-messages::-webkit-scrollbar-track { background: #2d3748; }
-        #chat-messages::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 4px; }
-        #chat-messages::-webkit-scrollbar-thumb:hover { background: #718096; }
+        #chat-messages::-webkit-scrollbar, #online-users::-webkit-scrollbar { width: 8px; }
+        #chat-messages::-webkit-scrollbar-track, #online-users::-webkit-scrollbar-track { background: #2d3748; }
+        #chat-messages::-webkit-scrollbar-thumb, #online-users::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 4px; }
+        #chat-messages::-webkit-scrollbar-thumb:hover, #online-users::-webkit-scrollbar-thumb:hover { background: #718096; }
     </style>
 </head>
 <body class="bg-gray-900 text-white">
@@ -32,10 +32,6 @@
                 <input id="video-url-input" type="text" placeholder="الصق رابط فيديو يوتيوب أو أي موقع آخر هنا..." class="flex-grow bg-gray-800 text-white p-3 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all">
                 <button id="load-video-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-md transition-colors duration-300">تحميل الفيديو</button>
             </div>
-
-            <div id="info-message" class="bg-blue-900/50 border border-blue-700 text-blue-300 p-3 rounded-lg mb-4 text-center hidden">
-                <p><strong>ملاحظة:</strong> المزامنة الكاملة تعمل فقط مع روابط يوتيوب. للمواقع الأخرى، التحكم يدوي.</p>
-            </div>
             
             <div id="player-container" class="bg-black rounded-lg shadow-2xl overflow-hidden flex-grow">
                 <div id="player"></div>
@@ -51,19 +47,30 @@
 
         <!-- Sidebar (Chat & Info) -->
         <aside class="w-full lg:w-1/3 bg-gray-800 flex flex-col p-4 border-r-2 border-gray-700 h-screen lg:h-auto">
-            <div class="bg-gray-900 p-4 rounded-lg mb-4 text-center">
-                <h2 class="text-lg font-semibold mb-2">شارك هذه الجلسة</h2>
-                <div class="flex items-center justify-center bg-gray-700 rounded-md p-2">
-                    <input id="session-link" type="text" class="bg-transparent text-white w-full text-center focus:outline-none" readonly>
-                    <button id="copy-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md mr-2 transition-colors duration-300">نسخ</button>
+            <div class="bg-gray-900 p-4 rounded-lg mb-4">
+                <div class="text-center mb-4">
+                    <h2 class="text-lg font-semibold mb-2">شارك هذه الجلسة</h2>
+                    <div class="flex items-center justify-center bg-gray-700 rounded-md p-2">
+                        <input id="session-link" type="text" class="bg-transparent text-white w-full text-center focus:outline-none" readonly>
+                        <button id="copy-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md mr-2 transition-colors duration-300">نسخ</button>
+                    </div>
+                    <p id="copy-success" class="text-green-400 mt-2 h-4"></p>
                 </div>
-                <p id="copy-success" class="text-green-400 mt-2 h-4"></p>
-                <div class="mt-2">
-                    <p class="text-xs text-gray-400">اسمك في المحادثة:</p>
-                    <p id="user-name-display" class="text-sm text-gray-200 break-all">غير متصل</p>
+                 <div class="text-center">
+                    <p class="text-xs text-gray-400">اسمك (اضغط للتغيير):</p>
+                    <p id="user-name-display" class="text-lg text-green-400 break-all cursor-pointer hover:text-green-300 transition-colors">غير متصل</p>
+                </div>
+            </div>
+            
+            <!-- Online Users -->
+            <div class="bg-gray-900 rounded-lg mb-4">
+                <h2 class="text-xl font-bold p-4 text-center border-b border-gray-700">المتواجدون الآن</h2>
+                <div id="online-users" class="p-4 overflow-y-auto max-h-32">
+                    <!-- Online users list will be here -->
                 </div>
             </div>
 
+            <!-- Chat -->
             <div class="flex-grow flex flex-col bg-gray-900 rounded-lg">
                 <h2 class="text-xl font-bold p-4 text-center border-b border-gray-700">المحادثة</h2>
                 <div id="chat-messages" class="flex-grow p-4 overflow-y-auto"></div>
@@ -76,10 +83,10 @@
     </div>
 
     <script type="module">
-        // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, serverTimestamp, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, serverTimestamp, query, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getDatabase, ref, onValue, set, onDisconnect } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
         // --- Firebase Config ---
         const firebaseConfig = {
@@ -102,11 +109,11 @@
             playerDiv: document.getElementById('player'),
             iframePlayer: document.getElementById('iframe-player'),
             placeholderDiv: document.getElementById('placeholder'),
-            infoMessage: document.getElementById('info-message'),
             chatForm: document.getElementById('chat-form'),
             chatInput: document.getElementById('chat-input'),
             chatMessages: document.getElementById('chat-messages'),
             userNameDisplay: document.getElementById('user-name-display'),
+            onlineUsers: document.getElementById('online-users'),
             statusMessage: document.getElementById('status-message'),
         };
 
@@ -117,14 +124,14 @@
             player: null,
             sessionId: null,
             sessionDocRef: null,
+            usersColRef: null, // For presence
             messagesColRef: null,
             userId: null,
             userName: null,
             localUpdate: false,
-            lastKnownTime: 0,
-            timeUpdateInterval: null,
             sessionUnsubscribe: null,
             messagesUnsubscribe: null,
+            usersUnsubscribe: null,
         };
 
         // --- Main App Logic ---
@@ -145,7 +152,7 @@
             onAuthStateChanged(appState.auth, async (user) => {
                 if (user) {
                     appState.userId = user.uid;
-                    setupUser();
+                    await setupUser();
                     elements.statusMessage.textContent = "متصل! جارِ تحميل الجلسة...";
                     elements.statusMessage.classList.replace('text-yellow-400', 'text-green-400');
                     setupSession();
@@ -162,7 +169,7 @@
             });
         }
         
-        function setupUser() {
+        async function setupUser() {
             let savedName = localStorage.getItem('watchTogetherUserName');
             if (!savedName) {
                 savedName = prompt("الرجاء إدخال اسمك للمحادثة:") || `مستخدم-${Math.floor(Math.random() * 1000)}`;
@@ -175,84 +182,100 @@
         function setupSession() {
             const urlParams = new URLSearchParams(window.location.search);
             let currentSessionId = urlParams.get('session');
+            let shareableLink = window.location.href; 
             
-            if (currentSessionId) {
-                appState.sessionId = currentSessionId;
-                elements.sessionLinkInput.value = window.location.href;
-            } else {
+            if (!currentSessionId) {
                 currentSessionId = `${appState.userId}-${Date.now()}`;
-                appState.sessionId = currentSessionId;
                 const baseUrl = window.location.href.split('?')[0];
-                const fullLink = `${baseUrl}?session=${currentSessionId}`;
-                elements.sessionLinkInput.value = fullLink;
+                shareableLink = `${baseUrl}?session=${currentSessionId}`;
             }
+
+            appState.sessionId = currentSessionId;
+            elements.sessionLinkInput.value = shareableLink;
             
             appState.sessionDocRef = doc(appState.db, "sessions", appState.sessionId);
             appState.messagesColRef = collection(appState.sessionDocRef, "messages");
-            
+            appState.usersColRef = collection(appState.sessionDocRef, "users");
+
+            managePresence();
             attachListeners();
         }
 
+        async function managePresence() {
+            const userStatusRef = doc(appState.usersColRef, appState.userId);
+            
+            // Using Realtime Database for more reliable disconnects if needed, but Firestore is simpler here.
+            // For now, a simple Firestore presence.
+            await setDoc(userStatusRef, { name: appState.userName, online: true });
+            
+            window.addEventListener('beforeunload', () => {
+                deleteDoc(userStatusRef);
+            });
+        }
+
         function attachListeners() {
+            // Detach old listeners
             if (appState.sessionUnsubscribe) appState.sessionUnsubscribe();
             if (appState.messagesUnsubscribe) appState.messagesUnsubscribe();
+            if (appState.usersUnsubscribe) appState.usersUnsubscribe();
 
+            // Session state listener
             appState.sessionUnsubscribe = onSnapshot(appState.sessionDocRef, (snapshot) => {
-                if (appState.localUpdate) {
-                    appState.localUpdate = false;
-                    return;
-                }
-                
+                elements.statusMessage.textContent = "الجلسة جاهزة للمشاهدة!";
+                elements.statusMessage.classList.replace('text-yellow-400', 'text-green-400');
+                if (appState.localUpdate) { appState.localUpdate = false; return; }
                 const data = snapshot.exists() ? snapshot.data() : {};
-                
-                const currentVideoUrl = elements.videoUrlInput.getAttribute('data-current-url');
-                if (data.videoUrl && data.videoUrl !== currentVideoUrl) {
+                if (data.videoUrl && data.videoUrl !== elements.videoUrlInput.getAttribute('data-current-url')) {
                     renderVideo(data.videoUrl, data.type);
                 }
-
-                if (appState.player && data.type === 'youtube' && appState.player.getPlayerState) {
-                    const playerState = appState.player.getPlayerState();
-                    if (data.isPlaying && playerState !== YT.PlayerState.PLAYING) { appState.player.playVideo(); } 
-                    else if (!data.isPlaying && playerState !== YT.PlayerState.PAUSED) { appState.player.pauseVideo(); }
-                    
-                    if (appState.player.getCurrentTime) {
-                       const timeDifference = Math.abs((data.currentTime || 0) - (appState.player.getCurrentTime() || 0));
-                        if (timeDifference > 2.5) { appState.player.seekTo(data.currentTime, true); }
-                    }
-                }
+                syncPlayerState(data);
             }, (error) => {
-                console.error("Error listening to session:", error);
+                console.error("Session listener error:", error);
                 elements.statusMessage.textContent = "خطأ في الاتصال بالجلسة.";
                 elements.statusMessage.classList.replace('text-green-400', 'text-red-500');
             });
 
-            const q = query(appState.messagesColRef);
-            appState.messagesUnsubscribe = onSnapshot(q, (snapshot) => {
+            // Online users listener
+            appState.usersUnsubscribe = onSnapshot(appState.usersColRef, (snapshot) => {
+                elements.onlineUsers.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const user = doc.data();
+                    const userEl = document.createElement('div');
+                    userEl.textContent = user.name;
+                    userEl.classList.add('text-gray-300', 'p-1');
+                    elements.onlineUsers.appendChild(userEl);
+                });
+            });
+
+            // Chat messages listener
+            appState.messagesUnsubscribe = onSnapshot(query(appState.messagesColRef), (snapshot) => {
                 const allMessages = [];
                 snapshot.forEach(doc => allMessages.push({ ...doc.data(), id: doc.id }));
                 allMessages.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
-                
                 elements.chatMessages.innerHTML = '';
                 allMessages.forEach(addMessageToDOM);
                 elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
             });
         }
         
+        function syncPlayerState(data) {
+             if (appState.player && data.type === 'youtube' && appState.player.getPlayerState) {
+                const playerState = appState.player.getPlayerState();
+                if (data.isPlaying && playerState !== YT.PlayerState.PLAYING) { appState.player.playVideo(); } 
+                else if (!data.isPlaying && playerState !== YT.PlayerState.PAUSED) { appState.player.pauseVideo(); }
+                if (appState.player.getCurrentTime) {
+                   const timeDifference = Math.abs((data.currentTime || 0) - (appState.player.getCurrentTime() || 0));
+                    if (timeDifference > 2.5) { appState.player.seekTo(data.currentTime, true); }
+                }
+            }
+        }
+
         function addMessageToDOM(message) {
             const messageEl = document.createElement('div');
             messageEl.classList.add('mb-3', 'p-3', 'rounded-lg', 'w-fit', 'max-w-xs', 'break-words');
             const isMe = message.senderId === appState.userId;
-
-            if (isMe) {
-                messageEl.classList.add('bg-red-700', 'ml-auto');
-            } else {
-                messageEl.classList.add('bg-gray-600', 'mr-auto');
-            }
-            
-            messageEl.innerHTML = `
-                <p class="font-bold text-sm">${message.senderName || 'مستخدم'}</p>
-                <p class="text-white mt-1">${message.text}</p>
-            `;
+            messageEl.classList.add(isMe ? 'bg-red-700' : 'bg-gray-600', isMe ? 'ml-auto' : 'mr-auto');
+            messageEl.innerHTML = `<p class="font-bold text-sm">${message.senderName || 'مستخدم'}</p><p class="text-white mt-1">${message.text}</p>`;
             elements.chatMessages.appendChild(messageEl);
         }
 
@@ -263,18 +286,13 @@
                 await setDoc(appState.sessionDocRef, newState, { merge: true }); 
             } catch (error) { 
                 console.error("Error updating Firestore:", error); 
-                elements.statusMessage.textContent = "فشل تحديث الحالة. تحقق من اتصالك.";
-                elements.statusMessage.classList.replace('text-green-400', 'text-red-500');
+                elements.statusMessage.textContent = "فشل تحديث الحالة.";
             }
         }
         
         window.onYouTubeIframeAPIReady = () => console.log("YouTube API Ready.");
 
         function createYouTubePlayer(videoId) {
-            elements.placeholderDiv.classList.add('hidden');
-            elements.iframePlayer.classList.add('hidden');
-            elements.playerDiv.classList.remove('hidden');
-            
             if (appState.player) {
                 appState.player.loadVideoById(videoId);
             } else {
@@ -288,28 +306,8 @@
         
         function onPlayerStateChange(event) {
             const isPlaying = (event.data === YT.PlayerState.PLAYING);
-            updateFirestoreState({ isPlaying: isPlaying });
-            if (isPlaying) { startSendingTimeUpdates(); } 
-            else {
-                stopSendingTimeUpdates();
-                if (appState.player && appState.player.getCurrentTime) { updateFirestoreState({ currentTime: appState.player.getCurrentTime() }); }
-            }
+            updateFirestoreState({ isPlaying: isPlaying, currentTime: event.target.getCurrentTime() });
         }
-
-        function startSendingTimeUpdates() {
-            if (appState.timeUpdateInterval) clearInterval(appState.timeUpdateInterval);
-            appState.timeUpdateInterval = setInterval(() => {
-                if (appState.player && appState.player.getCurrentTime) {
-                    const currentTime = appState.player.getCurrentTime();
-                    if (Math.abs(currentTime - appState.lastKnownTime) > 1) {
-                       appState.lastKnownTime = currentTime;
-                       updateFirestoreState({ currentTime: currentTime });
-                    }
-                }
-            }, 1000);
-        }
-
-        function stopSendingTimeUpdates() { if(appState.timeUpdateInterval) clearInterval(appState.timeUpdateInterval); }
         
         function getYouTubeVideoId(url) {
             const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -320,22 +318,22 @@
         function renderVideo(url, type) {
             elements.videoUrlInput.value = url;
             elements.videoUrlInput.setAttribute('data-current-url', url);
+            elements.placeholderDiv.classList.add('hidden');
             
             if (type === 'youtube') {
                 const videoId = getYouTubeVideoId(url);
-                elements.infoMessage.classList.add('hidden');
+                elements.iframePlayer.classList.add('hidden');
+                elements.playerDiv.classList.remove('hidden');
                 createYouTubePlayer(videoId);
             } else {
                 if (appState.player) { appState.player.destroy(); appState.player = null; }
-                stopSendingTimeUpdates();
-                elements.placeholderDiv.classList.add('hidden');
                 elements.playerDiv.classList.add('hidden');
                 elements.iframePlayer.src = url;
                 elements.iframePlayer.classList.remove('hidden');
-                elements.infoMessage.classList.remove('hidden');
             }
         }
-
+        
+        // --- Event Listeners Setup ---
         elements.loadVideoButton.addEventListener('click', () => {
             const url = elements.videoUrlInput.value.trim();
             if (!url) return;
@@ -343,8 +341,6 @@
             updateFirestoreState({ videoUrl: url, type: videoId ? 'youtube' : 'iframe', currentTime: 0, isPlaying: true });
         });
 
-        elements.videoUrlInput.addEventListener('keypress', (e) => e.key === 'Enter' && elements.loadVideoButton.click());
-        
         elements.copyButton.addEventListener('click', () => {
             elements.sessionLinkInput.select();
             document.execCommand('copy');
@@ -355,7 +351,7 @@
         elements.chatForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const messageText = elements.chatInput.value.trim();
-            if (messageText && appState.messagesColRef) {
+            if (messageText) {
                 elements.chatInput.value = '';
                 await addDoc(appState.messagesColRef, { 
                     text: messageText, 
@@ -363,6 +359,16 @@
                     senderName: appState.userName,
                     createdAt: serverTimestamp() 
                 });
+            }
+        });
+        
+        elements.userNameDisplay.addEventListener('click', async () => {
+            const newName = prompt("أدخل اسمك الجديد:", appState.userName);
+            if (newName && newName.trim() !== "") {
+                appState.userName = newName.trim();
+                localStorage.setItem('watchTogetherUserName', appState.userName);
+                elements.userNameDisplay.textContent = appState.userName;
+                await setDoc(doc(appState.usersColRef, appState.userId), { name: appState.userName, online: true });
             }
         });
         
